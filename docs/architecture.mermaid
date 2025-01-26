@@ -1,0 +1,59 @@
+flowchart TB
+    subgraph Users[User Interaction Layer]
+        User([User])
+        Meta[Meta Transaction]
+    end
+
+    subgraph Core[Core Contracts Layer]
+        Token[TotemToken ERC20]
+        NFT[TotemNFT ERC721]
+    end
+
+    subgraph Proxy[Proxy Layer]
+        ProxyAdmin[ProxyAdmin - Upgrade Controller]
+        GameProxy[Transparent Proxy - Storage Layer]
+        GameImpl[Game Implementation - Logic Layer]
+    end
+
+    subgraph Gasless[Gasless Layer]
+        Forwarder[TotemTrustedForwarder - Pays Gas]
+    end
+
+    %% User Interactions
+    User --> Meta
+    Meta --> Forwarder
+    User --> GameProxy
+
+    %% Gasless Flow
+    Forwarder --> GameProxy
+    Forwarder -- Pays Gas --> POL[(POL Network)]
+
+    %% Proxy Pattern
+    GameProxy -. Delegates .-> GameImpl
+    ProxyAdmin -- Controls --> GameProxy
+    ProxyAdmin -- Upgrades --> GameImpl
+
+    %% Core Integrations
+    GameProxy --> Token
+    GameProxy --> NFT
+    Token -- 50% Supply --> GameProxy
+    NFT -- Ownership --> GameProxy
+
+    classDef contract fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef proxy fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef gas fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef user fill:#fff,stroke:#333,stroke-width:2px;
+    classDef network fill:#fbb,stroke:#333,stroke-width:2px;
+
+    class Token,NFT contract;
+    class GameProxy,ProxyAdmin,GameImpl proxy;
+    class Forwarder gas;
+    class User,Meta user;
+    class POL network;
+
+    %% Notes
+    style Core fill:none,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    style Proxy fill:none,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    style Gasless fill:none,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    style Users fill:none,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    

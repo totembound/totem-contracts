@@ -1,0 +1,13 @@
+classDiagram
+    TotemGame --|> Initializable
+    TotemGame --|> OwnableUpgradeable
+    TotemGame --|> UUPSUpgradeable
+    TotemGame -- TotemToken
+    TotemGame -- TotemNFT
+    class TotemGame{
+        +totemToken
+        +totemNFT
+        +initialize()
+        +feed()
+        +train()
+    }
