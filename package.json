@@ -1,0 +1,36 @@
+{
+  "name": "totem-contracts",
+  "version": "1.0.0",
+  "description": "Totembound is a blockchain-based NFT game where players raise, train, and evolve mystical owl companions. Players connect to their totemic spirit animals, unlocking wisdom, rewards, and governance roles in an immersive journey of growth and discovery.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/totembound/totem-contracts.git"
+  },
+  "author": "TotemBound",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/totembound/totem-contracts/issues"
+  },
+  "devDependencies": {
+    "@ethersproject/abi": "5.7.0",
+    "@nomicfoundation/hardhat-chai-matchers": "2.0.8",
+    "@nomicfoundation/hardhat-ethers": "3.0.8",
+    "@nomicfoundation/hardhat-toolbox": "5.0.0",
+    "@openzeppelin/contracts": "5.2.0",
+    "@openzeppelin/contracts-upgradeable": "5.2.0",
+    "@typechain/hardhat": "9.1.0",
+    "@types/node": "22.10.6",
+    "@types/react": "^19.0.7",
+    "chai": "^4.2.0",
+    "dotenv": "16.4.7",
+    "ethers": "6.13.5",
+    "hardhat": "2.22.18",
+    "ts-node": "10.9.2",
+    "typechain": "8.3.2",
+    "typescript": "5.7.3"
+  }
+}
