@@ -83,7 +83,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Transfer tokens to user
         totemToken.transfer(user, tokenAmount);
         
-        // Optional: Forward received POL to a specific address
+        // Forward received POL to a specific address
         (bool sent, ) = payable(owner()).call{value: msg.value}("");
         require(sent, "Failed to forward POL");
     }

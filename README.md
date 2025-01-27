@@ -41,8 +41,8 @@ Solidity smart contracts for the TotemBound NFT game ecosystem on Polygon.
 ## Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/starman69/dapp-totembound.git
-cd dapp-totembound
+git clone https://github.com/totembound/totem-contracts.git
+cd totem-contracts
 ```
 
 2. Install dependencies:
