@@ -6,10 +6,19 @@ async function main() {
     console.log("Deploying contracts with:", deployer.address);
     console.log("Account balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)));
 
-    // 1. Deploy TotemToken
+    // 1a. Deploy TotemAdminPriceOracle
+    console.log("\nDeploying TotemAdminPriceOracle...");
+    const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
+    const initialPrice = ethers.parseUnits("0.01", "ether"); // Initial price 0.01 POL
+    const adminOracle = await TotemAdminPriceOracle.deploy(initialPrice);
+    await adminOracle.waitForDeployment();
+    const oracleAddress = await adminOracle.getAddress();
+    console.log("TotemAdminPriceOracle deployed to:", oracleAddress);
+
+    // 1b. Deploy TotemToken
     console.log("\nDeploying TotemToken...");
     const TotemToken = await ethers.getContractFactory("TotemToken");
-    const totemToken = await TotemToken.deploy();
+    const totemToken = await TotemToken.deploy(oracleAddress);
     await totemToken.waitForDeployment();
     const tokenAddress = await totemToken.getAddress();
     console.log("TotemToken deployed to:", tokenAddress);
@@ -71,7 +80,7 @@ async function main() {
 
     // 9. Setup Token Contract
     console.log("\nSetting up Token Contract...");
-    const setProxyTx = await totemToken.setGameProxy(proxyAddress);
+    const setProxyTx = await totemToken.updateGameProxy(proxyAddress);
     await setProxyTx.wait();
     const transferTx = await totemToken.transferGameplayAllocation();
     await transferTx.wait();
@@ -99,6 +108,7 @@ async function main() {
     console.log("\nSaving deployment info...");
     const deploymentInfo = {
         network: "localhost",
+        priceOracle: oracleAddress,
         totemToken: tokenAddress,
         totemNFT: nftAddress,
         totemTrustedForwarder: forwarderAddress,
