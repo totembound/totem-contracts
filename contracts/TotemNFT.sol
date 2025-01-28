@@ -148,7 +148,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
             stage: 0,
             lastFed: block.timestamp - 86400,
             isStaked: false,
-            displayName: ''
+            displayName: ""
         });
 
         _safeMint(to, tokenId);
