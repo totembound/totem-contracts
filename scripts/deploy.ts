@@ -4,10 +4,19 @@ async function main() {
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with:", deployer.address);
 
-    // 1. Deploy TotemToken
+    // 1a. Deploy TotemAdminPriceOracle
+    console.log("\nDeploying TotemAdminPriceOracle...");
+    const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
+    const initialPrice = ethers.parseUnits("0.01", "ether"); // Initial price 0.01 POL
+    const adminOracle = await TotemAdminPriceOracle.deploy(initialPrice);
+    await adminOracle.waitForDeployment();
+    const oracleAddress = await adminOracle.getAddress();
+    console.log("TotemAdminPriceOracle deployed to:", oracleAddress);
+
+    // 1b. Deploy TotemToken
     console.log("\nDeploying TotemToken...");
     const TotemToken = await ethers.getContractFactory("TotemToken");
-    const totemToken = await TotemToken.deploy();
+    const totemToken = await TotemToken.deploy(oracleAddress);
     await totemToken.waitForDeployment();
     console.log("TotemToken deployed to:", await totemToken.getAddress());
 
@@ -57,7 +66,7 @@ async function main() {
 
     // 8. Setup Token Contract
     console.log("\nSetting up Token Contract...");
-    await totemToken.setGameProxy(proxyAddress);
+    await totemToken.updateGameProxy(proxyAddress);
     await totemToken.transferGameplayAllocation();
     console.log("Gameplay tokens transferred to proxy");
 
