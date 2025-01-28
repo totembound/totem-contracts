@@ -57,10 +57,26 @@ async function main() {
     console.log("Game Implementation deployed to:", gameImplementationAddress);
 
     // 6. Prepare initialization data for proxy
+    const initialGameParams = {
+        signupReward: ethers.parseUnits("2000", 18),  // 2000 TOTEM
+        mintPrice: ethers.parseUnits("500", 18),      // 500 TOTEM
+        feedCost: ethers.parseUnits("10", 18),        // 10 TOTEM
+        trainCost: ethers.parseUnits("20", 18),       // 20 TOTEM
+        feedHappinessIncrease: 10,
+        trainExperienceIncrease: 50,
+        trainHappinessDecrease: 10
+    };    
+    const initialTimeWindows = {
+        window1Start: 0,      // 00:00 UTC
+        window2Start: 28800,  // 08:00 UTC
+        window3Start: 57600   // 16:00 UTC
+    };    
     const initData = TotemGame.interface.encodeFunctionData("initialize", [
         tokenAddress,
         nftAddress,
-        forwarderAddress
+        forwarderAddress,
+        initialGameParams,
+        initialTimeWindows
     ]);
 
     // 7. Deploy Proxy
