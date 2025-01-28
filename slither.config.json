@@ -1,0 +1,11 @@
+{
+    "filter_paths": "node_modules,contracts/mocks",
+    "solc_remaps": [
+        "@openzeppelin/=node_modules/@openzeppelin/"
+    ],
+    "detectors_to_exclude": [
+        "solc-version",
+        "pragma",
+        "naming-convention"
+    ]
+}
