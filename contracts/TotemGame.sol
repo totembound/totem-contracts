@@ -75,7 +75,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(msg.value > 0, "Must send POL");
         
         // Calculate token amount based on sent POL
-        uint256 tokenAmount = (msg.value * 10**18) / totemToken.TOKEN_PRICE();
+        uint256 tokenAmount = (msg.value * 10**18) / totemToken.getTokenPrice();
         
         // Ensure sufficient tokens in contract
         require(totemToken.balanceOf(address(this)) >= tokenAmount, "Insufficient tokens available");
