@@ -8,37 +8,40 @@ import "./TotemToken.sol";
 import "./TotemNFT.sol";
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    struct GameParameters {
+        uint256 signupReward;
+        uint256 mintPrice;
+        uint256 feedCost;
+        uint256 trainCost;
+        uint256 feedHappinessIncrease;
+        uint256 trainExperienceIncrease;
+        uint256 trainHappinessDecrease;
+    }
+
+    struct TimeWindows {
+        uint256 window1Start;
+        uint256 window2Start;
+        uint256 window3Start;
+    }
+
     TotemToken public totemToken;
     TotemNFT public totemNFT;
     address public trustedForwarder;
+    GameParameters public gameParams;
+    TimeWindows public timeWindows;
     mapping(address => bool) public hasSignedUp;
 
-    struct PermitData {
-        uint256 deadline;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
-    // Constants
-    uint256 public constant SIGNUP_REWARD = 2_000 * 10**18;  // 2000 TOTEM
-    uint256 public constant MINT_PRICE = 500 * 10**18;       // 500 TOTEM
-    uint256 public constant FEED_COST = 10 * 10**18;         // 10 TOTEM
-    uint256 public constant TRAIN_COST = 20 * 10**18;        // 20 TOTEM
-    uint256 public constant FEED_HAPPINESS_INCREASE = 10;
-    uint256 public constant TRAIN_EXPERIENCE_INCREASE = 50;
-    uint256 public constant TRAIN_HAPPINESS_DECREASE = 10;
-    uint256 public constant SECONDS_PER_DAY = 86400;
-    uint256 public constant WINDOW_1_START = 0;     // 00:00 UTC
-    uint256 public constant WINDOW_2_START = 28800; // 08:00 UTC
-    uint256 public constant WINDOW_3_START = 57600; // 16:00 UTC
-
-    // Updated events
+    event GameParametersUpdated(GameParameters params);
+    event TimeWindowsUpdated(TimeWindows windows);
     event UserSignedUp(address indexed user);
     event TotemPurchased(address indexed user, uint256 indexed tokenId, TotemNFT.Species species);
     event TotemFed(uint256 indexed tokenId);
     event TotemTrained(uint256 indexed tokenId);
-    event ForwarderFunded(uint256 amount);
+    event TrustedForwarderFunded(uint256 amount);
+    event TrustedForwarderUpdated(address newForwarder);
+
+    // Constants
+    uint256 public constant SECONDS_PER_DAY = 86400;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -48,7 +51,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function initialize(
         address _totemToken,
         address _totemNFT,
-        address _trustedForwarder
+        address _trustedForwarder,
+        GameParameters memory _initialParams,
+        TimeWindows memory _initialWindows
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
@@ -56,6 +61,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         totemToken = TotemToken(_totemToken);
         totemNFT = TotemNFT(_totemNFT);
         trustedForwarder = _trustedForwarder;
+        gameParams = _initialParams;
+        timeWindows = _initialWindows;
     }
 
     function signup() external {
@@ -64,7 +71,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         
         // Mark as signed up and give initial tokens
         hasSignedUp[user] = true;
-        totemToken.transfer(user, SIGNUP_REWARD); // 2000 TOTEM
+        totemToken.transfer(user, gameParams.signupReward);
 
         emit UserSignedUp(user);
     }
@@ -94,7 +101,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(speciesId < uint8(TotemNFT.Species.None), "Invalid species");
         
         // Take payment for the totem
-        require(totemToken.transferFrom(_msgSender(), address(this), MINT_PRICE), "Purchase failed");
+        require(totemToken.transferFrom(_msgSender(), address(this), gameParams.mintPrice), "Purchase failed");
         
         // Mint their chosen totem
         // For now, all mints are Common rarity
@@ -123,15 +130,15 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 lastFedDaySeconds = lastFed - lastFedDay;
         
         // Check if in different window
-        if (currentDaySeconds < WINDOW_2_START) {
+        if (currentDaySeconds < timeWindows.window2Start) {
             // Window 1: 00:00-08:00
-            return lastFedDaySeconds >= WINDOW_2_START || lastFedDaySeconds < WINDOW_1_START;
-        } else if (currentDaySeconds < WINDOW_3_START) {
+            return lastFedDaySeconds >= timeWindows.window2Start || lastFedDaySeconds < timeWindows.window1Start;
+        } else if (currentDaySeconds < timeWindows.window3Start) {
             // Window 2: 08:00-16:00
-            return lastFedDaySeconds < WINDOW_2_START || lastFedDaySeconds >= WINDOW_3_START;
+            return lastFedDaySeconds < timeWindows.window2Start || lastFedDaySeconds >= timeWindows.window3Start;
         } else {
             // Window 3: 16:00-24:00
-            return lastFedDaySeconds < WINDOW_3_START;
+            return lastFedDaySeconds < timeWindows.window3Start;
         }
     }
 
@@ -143,8 +150,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         require(_canFeed(lastFed), "Too soon to feed");
 
-        totemToken.transferFrom(_msgSender(), address(this), FEED_COST);
-        totemNFT.updateHappiness(tokenId, FEED_HAPPINESS_INCREASE, true);
+        totemToken.transferFrom(_msgSender(), address(this), gameParams.feedCost);
+        totemNFT.updateHappiness(tokenId, gameParams.feedHappinessIncrease, true);
         totemNFT.updateLastFed(tokenId);
         
         emit TotemFed(tokenId);
@@ -153,29 +160,14 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function train(uint256 tokenId) external {
         require(totemNFT.ownerOf(tokenId) == _msgSender(), "Not owner");
         
-        totemToken.transferFrom(_msgSender(), address(this), TRAIN_COST);
-        totemNFT.addExperience(tokenId, TRAIN_EXPERIENCE_INCREASE);
-        totemNFT.updateHappiness(tokenId, TRAIN_HAPPINESS_DECREASE, false);
+        totemToken.transferFrom(_msgSender(), address(this), gameParams.trainCost);
+        totemNFT.addExperience(tokenId, gameParams.trainExperienceIncrease);
+        totemNFT.updateHappiness(tokenId, gameParams.trainHappinessDecrease, false);
         
         emit TotemTrained(tokenId);
     }
-
-    function fundForwarder(uint256 amount) external onlyOwner {
-        require(address(this).balance >= amount, "Insufficient POL balance");
-        
-        (bool success, ) = payable(trustedForwarder).call{value: amount}("");
-        require(success, "POL transfer failed");
-        
-        emit ForwarderFunded(amount);
-    }
-
-    function withdrawPol() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No POL to withdraw");
-        
-        (bool success, ) = payable(owner()).call{value: balance}("");
-        require(success, "POL transfer failed");
-    }
+    
+    // Admin functions for dynamic updates
 
     function setMetadataURI(
         TotemNFT.Species species,
@@ -193,6 +185,47 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         string[] calldata ipfsHashes
     ) external onlyOwner {
         totemNFT.batchSetMetadataURIs(species, colors, stages, ipfsHashes);
+    }
+
+    function updateGameParameters(GameParameters memory _params) external onlyOwner {
+        require(_params.signupReward > 0, "Invalid signup reward");
+        require(_params.mintPrice > 0, "Invalid mint price");
+        require(_params.feedCost > 0, "Invalid feed cost");
+        require(_params.trainCost > 0, "Invalid train cost");
+        
+        gameParams = _params;
+        emit GameParametersUpdated(_params);
+    }
+
+    function updateTimeWindows(TimeWindows memory _windows) external onlyOwner {
+        require(_windows.window1Start < _windows.window2Start, "Invalid window 1");
+        require(_windows.window2Start < _windows.window3Start, "Invalid window 2");
+        require(_windows.window3Start < SECONDS_PER_DAY, "Invalid window 3");
+        
+        timeWindows = _windows;
+        emit TimeWindowsUpdated(_windows);
+    }
+
+    function updateTrustedForwarder(address _newForwarder) external onlyOwner {
+        require(_newForwarder != address(0), "Invalid forwarder address");
+        trustedForwarder = _newForwarder;
+        emit TrustedForwarderUpdated(_newForwarder);
+    }
+    function fundTrustedForwarder(uint256 amount) external onlyOwner {
+        require(address(this).balance >= amount, "Insufficient POL balance");
+        
+        (bool success, ) = payable(trustedForwarder).call{value: amount}("");
+        require(success, "POL transfer failed");
+        
+        emit TrustedForwarderFunded(amount);
+    }
+
+    function withdrawPol() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No POL to withdraw");
+        
+        (bool success, ) = payable(owner()).call{value: balance}("");
+        require(success, "POL transfer failed");
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
