@@ -85,7 +85,7 @@ async function main() {
 
     for (const event of events) {
         const userAddress = event.args.user;
-        const hasAccount = await game.hasAccount(userAddress);
+        const hasAccount = await game.hasSignedUp(userAddress);
         const tokenBalance = await token.balanceOf(userAddress);
         totalTokensDistributed += tokenBalance;
 
@@ -117,6 +117,10 @@ async function main() {
             const owner = await nft.ownerOf(tokenId);
             const attrs = await nft.attributes(tokenId);
             const ownerBalance = await token.balanceOf(owner);
+            // Fetch action tracking for all actions
+            const feedTracking = await game.getActionTracking(tokenId, 0); // Feed
+            const trainTracking = await game.getActionTracking(tokenId, 1); // Train
+            const treatTracking = await game.getActionTracking(tokenId, 2); // Treat
             
             console.log(`Token ID: ${tokenId}`);
             console.log(`Owner: ${owner}`);
@@ -128,9 +132,24 @@ async function main() {
                 happiness: attrs.happiness.toString(),
                 experience: attrs.experience.toString(),
                 stage: attrs.stage.toString(),
-                lastFed: new Date(Number(attrs.lastFed) * 1000).toISOString(),
                 isStaked: attrs.isStaked,
                 displayName: attrs.displayName.toString()
+            });
+            console.log("Action Tracking Details:");
+            console.log("Feed Action:", {
+                lastUsed: new Date(Number(feedTracking.lastUsed) * 1000).toUTCString(),
+                dailyUses: feedTracking.dailyUses.toString(),
+                dayStartTime: new Date(Number(feedTracking.dayStartTime) * 1000).toUTCString()
+            });
+            console.log("Train Action:", {
+                lastUsed: new Date(Number(trainTracking.lastUsed) * 1000).toUTCString(),
+                dailyUses: trainTracking.dailyUses.toString(),
+                dayStartTime: new Date(Number(trainTracking.dayStartTime) * 1000).toUTCString()
+            });
+            console.log("Treat Action:", {
+                lastUsed: new Date(Number(treatTracking.lastUsed) * 1000).toUTCString(),
+                dailyUses: treatTracking.dailyUses.toString(),
+                dayStartTime: new Date(Number(treatTracking.dayStartTime) * 1000).toUTCString()
             });
             console.log("---");
         } catch (error) {
