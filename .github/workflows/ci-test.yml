@@ -1,4 +1,4 @@
-name: Solidity Tests
+name: CI - Solidity Tests
 
 on:
   push:
