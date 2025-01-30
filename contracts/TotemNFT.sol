@@ -4,6 +4,21 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+error InvalidSpecies();
+error NoValidColorForRarity();
+error TokenDoesNotExist();
+error NotAuthorizedForToken();
+error MaxStageReached();
+error InsufficientExperience();
+error EvolutionMetadataNotSet();
+error InvalidStage();
+error InvalidColor();
+error ArrayLengthMismatch();
+error NotTokenOwner();
+error InvalidNameFormat();
+error InvalidUTF8();
+error URINotSet();
+
 contract TotemNFT is ERC721Enumerable, Ownable {
     enum Species {
         Goose,      // 0
@@ -31,34 +46,15 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     enum Color {
         // Common Colors
-        Brown,
-        Gray,
-        White,
-        Tawny,
-        Speckled,
-        
+        Brown, Gray, White, Tawny, Speckled,
         // Uncommon Colors
-        Russet,
-        Slate,
-        Copper,
-        Cream,
-        Dappled,
-        
+        Russet, Slate, Copper, Cream, Dappled,
         // Rare Colors
-        Golden,
-        DarkPurple,
-        LightBlue,
-        Charcoal,
-        
+        Golden, DarkPurple, LightBlue, Charcoal,
         // Epic Colors
-        EmeraldGreen,
-        CrimsonRed,
-        DeepSapphire,
-        
+        EmeraldGreen, CrimsonRed, DeepSapphire,
         // Legendary Colors
-        RadiantGold,
-        EtherealSilver,
-        
+        RadiantGold, EtherealSilver,
         None
     }
 
@@ -69,16 +65,13 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         uint256 happiness;
         uint256 experience;
         uint256 stage;      // 0 (Egg/Pup) to 4 (Elder)
-        uint256 lastFed;
         bool isStaked;      // For stage 4 staking
         string displayName;
     }
 
-    uint256 public constant MINT_PRICE = 500 * 10**18; // 500 TOTEM
-
     // Mapping from token ID to attributes
     mapping(uint256 => TotemAttributes) public attributes;
-    
+
     // Mapping for complete IPFS hashes: species => color => stage => hash
     mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
 
@@ -88,6 +81,8 @@ contract TotemNFT is ERC721Enumerable, Ownable {
     // Experience thresholds for each stage
     uint256[4] public stageThresholds = [500, 1500, 3500, 7500];
     
+     // Events
+    event AttributesUpdated(uint256 indexed tokenId, uint256 happiness, uint256 experience);
     event DisplayNameSet(uint256 indexed tokenId, string newName);
     event TotemEvolved(uint256 indexed tokenId, uint256 newStage, Species species, Rarity rarity);
     event TotemStaked(uint256 indexed tokenId);
@@ -127,7 +122,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         Species species,
         Rarity rarity
     ) external onlyOwner returns (uint256) {
-        require(species != Species.None, "Invalid species");
+        if (species == Species.None) revert InvalidSpecies();
         uint256 tokenId = totalSupply() + 1;
         
         // For now, all mints are Common rarity
@@ -135,7 +130,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
         // Assign a valid color for this rarity
         Color color = getValidColorForRarity(rarity);
-        require(color != Color.None, "No valid color for rarity");
+        if (color == Color.None) revert NoValidColorForRarity();
 
         // For now, all mints are Common rarity
         // Later this will be determined by oracle
@@ -146,7 +141,6 @@ contract TotemNFT is ERC721Enumerable, Ownable {
             happiness: 100,
             experience: 0,
             stage: 0,
-            lastFed: block.timestamp - 86400,
             isStaked: false,
             displayName: ""
         });
@@ -177,51 +171,53 @@ contract TotemNFT is ERC721Enumerable, Ownable {
     }
 
     function evolve(uint256 tokenId) external {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        require(_ownerOf(tokenId) == msg.sender || 
-                isApprovedForAll(_ownerOf(tokenId), msg.sender) || 
-                getApproved(tokenId) == msg.sender, 
-                "Not authorized");
+         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+         if (_ownerOf(tokenId) != msg.sender && 
+            !isApprovedForAll(_ownerOf(tokenId), msg.sender) && 
+            getApproved(tokenId) != msg.sender) revert NotAuthorizedForToken();
 
         TotemAttributes storage totem = attributes[tokenId];
-        require(totem.stage < 4, "Max stage reached");
+        if (totem.stage >= 4) revert MaxStageReached();
         
         uint256 requiredExp = stageThresholds[totem.stage];
-        require(totem.experience >= requiredExp, "Insufficient experience");
+        if (totem.experience < requiredExp) revert InsufficientExperience();
         
         totem.stage += 1;
         
         // Verify the metadata URI exists for the new stage
-        require(
-            bytes(_metadataURIs[totem.species][totem.color][totem.stage]).length > 0,
-            "Evolution metadata not set"
-        );
-        
-        emit TotemEvolved(
-            tokenId, 
-            totem.stage, 
-            totem.species, 
-            totem.rarity
-        );
-    }
-
-    function updateHappiness(uint256 tokenId, uint256 amount, bool increase) external onlyOwner {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        if (increase) {
-            attributes[tokenId].happiness = min(attributes[tokenId].happiness + amount, 100);
-        } else {
-            attributes[tokenId].happiness = max(attributes[tokenId].happiness - amount, 0);
+        if (bytes(_metadataURIs[totem.species][totem.color][totem.stage]).length == 0) {
+           revert EvolutionMetadataNotSet();
         }
+        
+        emit TotemEvolved(tokenId, totem.stage, totem.species, totem.rarity);
     }
 
-    function addExperience(uint256 tokenId, uint256 amount) external onlyOwner {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        attributes[tokenId].experience += amount;
-    }
+    // Single function to update attributes (called by TotemGame)
+    function updateAttributes(
+        uint256 tokenId,
+        uint256 happinessChange,
+        bool isHappinessIncrease,
+        uint256 experienceGain
+    ) external onlyOwner {
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        
+        // Update happiness
+        if (isHappinessIncrease) {
+            attributes[tokenId].happiness = min(attributes[tokenId].happiness + happinessChange, 100);
+        } else {
+            attributes[tokenId].happiness = max(attributes[tokenId].happiness - happinessChange, 0);
+        }
+        
+        // Update experience
+        if (experienceGain > 0) {
+            attributes[tokenId].experience += experienceGain;
+        }
 
-    function updateLastFed(uint256 tokenId) external onlyOwner {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        attributes[tokenId].lastFed = block.timestamp;
+        emit AttributesUpdated(
+            tokenId, 
+            attributes[tokenId].happiness,
+            attributes[tokenId].experience
+        );
     }
 
     // Set the IPFS hash for a specific species-color-stage combination
@@ -231,8 +227,8 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         uint256 stage,
         string memory ipfsHash
     ) external onlyOwner {
-        require(stage <= 4, "Invalid stage");
-        require(color != Color.None, "Invalid color");
+        if (stage > 4) revert InvalidStage();
+        if (color == Color.None) revert InvalidColor();
         _metadataURIs[species][color][stage] = ipfsHash;
         emit MetadataURISet(species, color, stage, ipfsHash);
     }
@@ -244,33 +240,30 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         uint256[] calldata stages,
         string[] calldata ipfsHashes
     ) external onlyOwner {
-        require(
-            species.length == colors.length &&
-            colors.length == stages.length &&
-            stages.length == ipfsHashes.length,
-            "Array lengths must match"
-        );
-
+        if (species.length != colors.length ||
+            colors.length != stages.length ||
+            stages.length != ipfsHashes.length) revert ArrayLengthMismatch();
+        
         for(uint i = 0; i < species.length; i++) {
-            require(stages[i] <= 4, "Invalid stage");
-            require(colors[i] != Color.None, "Invalid color");
+            if (stages[i] > 4) revert InvalidStage();
+            if (colors[i] == Color.None) revert InvalidColor();
             _metadataURIs[species[i]][colors[i]][stages[i]] = ipfsHashes[i];
             emit MetadataURISet(species[i], colors[i], stages[i], ipfsHashes[i]);
         }
     }
 
     function setDisplayName(uint256 tokenId, string memory newName) external {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        require(_ownerOf(tokenId) == msg.sender, "Not owner");
-        require(validateDisplayName(newName), "Invalid name format");
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (!validateDisplayName(newName)) revert InvalidNameFormat();
         
         attributes[tokenId].displayName = newName;
         emit DisplayNameSet(tokenId, newName);
     }
 
     function forceUpdateDisplayName(uint256 tokenId, string memory newName) external onlyOwner {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        require(validateDisplayName(newName), "Invalid name format");
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        if (!validateDisplayName(newName)) revert InvalidNameFormat();
 
         attributes[tokenId].displayName = newName;
         emit DisplayNameSet(tokenId, newName);
@@ -278,7 +271,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     function validateDisplayName(string memory str) internal pure returns (bool) {
         bytes memory b = bytes(str);
-        require(b.length >= 1 && b.length <= 32, "Invalid length");
+        if (b.length < 1 || b.length > 32) return false;
         // Basic emoji range + alphanumeric + basic punctuation
         for(uint i; i<b.length; i++){
             bytes1 char = b[i];
@@ -289,11 +282,11 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     // Get the complete URI for a token
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         TotemAttributes memory totem = attributes[tokenId];
         
         string memory hash = _metadataURIs[totem.species][totem.color][totem.stage];
-        require(bytes(hash).length > 0, "URI not set for this combination");
+        if (bytes(hash).length == 0) revert URINotSet();
         
         return string(abi.encodePacked("ipfs://", hash));
     }
@@ -315,13 +308,13 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         Color color,
         uint256 stage
     ) external view returns (string memory) {
-        require(uint8(species) < uint8(Species.None), "Invalid species");
-        require(uint8(color) < uint8(Color.None), "Invalid color");
-        require(stage <= 4, "Invalid stage");
-    
+        if (uint8(species) >= uint8(Species.None)) revert InvalidSpecies();
+        if (uint8(color) >= uint8(Color.None)) revert InvalidColor();
+        if (stage > 4) revert InvalidStage();
 
         string memory hash = _metadataURIs[species][color][stage];
-        require(bytes(hash).length > 0, "URI not set for this combination");
+        if (bytes(hash).length == 0) revert URINotSet();
+
         return string(abi.encodePacked("ipfs://", hash));
     }
     

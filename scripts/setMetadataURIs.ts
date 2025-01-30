@@ -37,7 +37,7 @@ async function main() {
 
     // Call through the game contract
     console.log("Setting metadata URIs through game contract...");
-    const tx = await game.setNFTMetadataURIs(species, colors, stages, ipfsHashes);
+    const tx = await game.setMetadataURIs(species, colors, stages, ipfsHashes);
     console.log("Transaction hash:", tx.hash);
     const receipt = await tx.wait();
     console.log("Metadata URIs have been set successfully!");
