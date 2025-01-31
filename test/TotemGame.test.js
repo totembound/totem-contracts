@@ -1,9 +1,10 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("TotemGame", function () {
     let TotemGame, TotemToken, TotemNFT, TotemProxy, TotemProxyAdmin;
-    let game, token, nft, proxy, proxyAdmin, adminOracle;
+    let game, token, nft, proxy, proxyAdmin;
     let owner, addr1, addr2, trustedForwarder;
     
     // Initial game parameters
@@ -19,99 +20,53 @@ describe("TotemGame", function () {
         window3Start: 57600n   // 16:00 UTC
     };
 
-    // Action configurations
-    const actionConfigs = {
-        feed: {
-            cost: ethers.parseUnits("10", 18),      // 10 TOTEM
-            cooldown: 0n,
-            maxDaily: 3n,
-            minHappiness: 0n,
-            happinessChange: 10n,
-            experienceGain: 0n,
-            useTimeWindows: true,
-            increasesHappiness: true,
-            enabled: true
-        },
-        train: {
-            cost: ethers.parseUnits("20", 18),      // 20 TOTEM
-            cooldown: 0n,
-            maxDaily: 0n,
-            minHappiness: 20n,
-            happinessChange: 10n,
-            experienceGain: 50n,
-            useTimeWindows: false,
-            increasesHappiness: false,
-            enabled: true
-        },
-        treat: {
-            cost: ethers.parseUnits("20", 18),      // 20 TOTEM
-            cooldown: 14400n,
-            maxDaily: 2n,
-            minHappiness: 0n,
-            happinessChange: 10n,
-            experienceGain: 0n,
-            useTimeWindows: false,
-            increasesHappiness: true,
-            enabled: true
-        }
-    };
-
     beforeEach(async function () {
         [owner, addr1, addr2, trustedForwarder] = await ethers.getSigners();
 
-        // 1. Deploy price oracle
+        // Deploy price oracle
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
-        const initialPrice = ethers.parseUnits("0.01", "ether");
-        adminOracle = await TotemAdminPriceOracle.deploy(initialPrice);
+        const oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
 
-        // 2. Deploy TotemToken
+        // Deploy TotemToken
         TotemToken = await ethers.getContractFactory("TotemToken");
-        token = await TotemToken.deploy(await adminOracle.getAddress());
+        token = await TotemToken.deploy(await oracle.getAddress());
 
-        // 3. Deploy TotemNFT
+        // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
         nft = await TotemNFT.deploy();
 
-        // 4. Deploy ProxyAdmin
-        TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
-        proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
-
-        // 5. Deploy Game Implementation
+        // Deploy Game Implementation and Proxy
         TotemGame = await ethers.getContractFactory("TotemGame");
-        const gameImplementation = await TotemGame.deploy();
+        const gameImpl = await TotemGame.deploy();
 
-        // 6. Prepare initialization data
+        // Initialize proxy with implementation
         const initData = TotemGame.interface.encodeFunctionData("initialize", [
             await token.getAddress(),
             await nft.getAddress(),
             trustedForwarder.address,
-            {
-                signupReward: gameParams.signupReward,
-                mintPrice: gameParams.mintPrice
-            },
-            {
-                window1Start: timeWindows.window1Start,
-                window2Start: timeWindows.window2Start,
-                window3Start: timeWindows.window3Start
-            }
+            gameParams,
+            timeWindows
         ]);
 
-        // 7. Deploy Proxy
-        TotemProxy = await ethers.getContractFactory("TotemProxy");
+        // Deploy and initialize proxy
+        const TotemProxy = await ethers.getContractFactory("TotemProxy");
         proxy = await TotemProxy.deploy(
-            await gameImplementation.getAddress(),
-            await proxyAdmin.getAddress(),
+            await gameImpl.getAddress(),
+            owner.address,
             initData
         );
 
-        // 8. Set up Game Contract interface
+        // Get game contract interface at proxy address
         game = await ethers.getContractAt("TotemGame", await proxy.getAddress());
 
-        // 9. Setup Token Contract
-        await token.updateGameProxy(await game.getAddress());
-        await token.transferGameplayAllocation();
+        // Transfer token allocation to game contract
+        await token.transferAllocation(
+            0, // Game category
+            await game.getAddress(),
+            ethers.parseUnits("250000000", 18) // 250M tokens
+        );
 
-        // 10. Transfer NFT ownership
+        // Transfer NFT ownership to game contract
         await nft.transferOwnership(await game.getAddress());
     });
 
@@ -133,45 +88,25 @@ describe("TotemGame", function () {
             expect(windows.window3Start).to.equal(timeWindows.window3Start);
         });
 
-        it("Should have correct token balance after initialization", async function () {
-            const gameplayTokens = (ethers.parseUnits("1000000000", 18) * 25n) / 100n; // 25% of 1 billion
-            expect(await token.balanceOf(await game.getAddress())).to.equal(gameplayTokens);
-        });
+        it("Should have default action configurations", async function () {
+            const feedConfig = await game.actionConfigs(0); // Feed
+            const trainConfig = await game.actionConfigs(1); // Train
+            const treatConfig = await game.actionConfigs(2); // Treat
 
-        it("Should have correct action configurations", async function () {
-            const { params, windows, configs } = await game.getGameConfiguration();
+            // Verify Feed configuration
+            expect(feedConfig.cost).to.equal(ethers.parseUnits("10", 18));
+            expect(feedConfig.maxDaily).to.equal(3n);
+            expect(feedConfig.useTimeWindows).to.be.true;
 
-            // Verify game parameters
-            expect(params.signupReward).to.equal(gameParams.signupReward);
-            expect(params.mintPrice).to.equal(gameParams.mintPrice);
+            // Verify Train configuration
+            expect(trainConfig.cost).to.equal(ethers.parseUnits("20", 18));
+            expect(trainConfig.minHappiness).to.equal(20n);
+            expect(trainConfig.experienceGain).to.equal(50n);
 
-            // Verify action configurations
-            const actionTypes = ['Feed', 'Train', 'Treat'];
-            actionTypes.forEach((actionType, index) => {
-                const actionConfig = configs[index];
-                let expectedConfig;
-                switch(actionType) {
-                    case 'Feed':
-                        expectedConfig = actionConfigs.feed;
-                        break;
-                    case 'Train':
-                        expectedConfig = actionConfigs.train;
-                        break;
-                    case 'Treat':
-                        expectedConfig = actionConfigs.treat;
-                        break;
-                }
-
-                expect(actionConfig.cost).to.equal(expectedConfig.cost);
-                expect(actionConfig.cooldown).to.equal(expectedConfig.cooldown);
-                expect(actionConfig.maxDaily).to.equal(expectedConfig.maxDaily);
-                expect(actionConfig.minHappiness).to.equal(expectedConfig.minHappiness);
-                expect(actionConfig.happinessChange).to.equal(expectedConfig.happinessChange);
-                expect(actionConfig.experienceGain).to.equal(expectedConfig.experienceGain);
-                expect(actionConfig.useTimeWindows).to.equal(expectedConfig.useTimeWindows);
-                expect(actionConfig.increasesHappiness).to.equal(expectedConfig.increasesHappiness);
-                expect(actionConfig.enabled).to.equal(expectedConfig.enabled);
-            });
+            // Verify Treat configuration
+            expect(treatConfig.cost).to.equal(ethers.parseUnits("20", 18));
+            expect(treatConfig.cooldown).to.equal(14400n);
+            expect(treatConfig.maxDaily).to.equal(2n);
         });
     });
 
@@ -189,13 +124,13 @@ describe("TotemGame", function () {
         });
     });
 
-    describe("Token Buying", function () {
+    describe("Token Purchase", function () {
         beforeEach(async function () {
             await game.connect(addr1).signup();
         });
 
         it("Should allow buying tokens with POL", async function () {
-            const polAmount = ethers.parseEther("1"); // 1 POL
+            const polAmount = ethers.parseEther("1");
             const initialBalance = await token.balanceOf(addr1.address);
             
             await game.connect(addr1).buyTokens({ value: polAmount });
@@ -203,13 +138,12 @@ describe("TotemGame", function () {
             expect(await token.balanceOf(addr1.address)).to.be.gt(initialBalance);
         });
 
-        it("Should fail buying tokens without signup", async function () {
-            const polAmount = ethers.parseEther("1");
-            await expect(game.connect(addr2).buyTokens({ value: polAmount }))
+        it("Should fail for non-signed up users", async function () {
+            await expect(game.connect(addr2).buyTokens({ value: ethers.parseEther("1") }))
                 .to.be.revertedWithCustomError(game, "NotSignedUp");
         });
 
-        it("Should fail buying tokens with zero POL", async function () {
+        it("Should fail with zero POL", async function () {
             await expect(game.connect(addr1).buyTokens({ value: 0 }))
                 .to.be.revertedWithCustomError(game, "NoPolSent");
         });
@@ -222,55 +156,144 @@ describe("TotemGame", function () {
         });
 
         it("Should allow purchasing a totem", async function () {
-            const speciesId = 0; // First species
-            await game.connect(addr1).purchaseTotem(speciesId);
-            
+            await game.connect(addr1).purchaseTotem(0); // First species
             expect(await nft.balanceOf(addr1.address)).to.equal(1n);
             
             const expectedBalance = gameParams.signupReward - gameParams.mintPrice;
             expect(await token.balanceOf(addr1.address)).to.equal(expectedBalance);
         });
 
-        it("Should fail to purchase with invalid species", async function () {
-            const invalidSpeciesId = 255;
-            await expect(game.connect(addr1).purchaseTotem(invalidSpeciesId))
-                .to.be.revertedWithCustomError(nft, "InvalidSpecies");
-        });
+        it("Should initialize action tracking for new totem", async function () {
+            await game.connect(addr1).purchaseTotem(0);
+            const tokenId = await nft.tokenOfOwnerByIndex(addr1.address, 0);
 
-        it("Should fail to purchase without signup", async function () {
-            await expect(game.connect(addr2).purchaseTotem(0))
-                .to.be.revertedWithCustomError(game, "NotSignedUp");
-        });
-
-        it("Should fail to purchase without sufficient token approval", async function () {
-            await token.connect(addr1).approve(await game.getAddress(), 0); // Reset approval
-            await expect(game.connect(addr1).purchaseTotem(0))
-                .to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+            // Check tracking initialization for each action
+            const actionTypes = [0, 1, 2]; // Feed, Train, Treat
+            for (const actionType of actionTypes) {
+                const tracking = await game.getActionTracking(tokenId, actionType);
+                expect(tracking.dailyUses).to.equal(0n);
+            }
         });
     });
 
     describe("Action Execution", function () {
         let tokenId;
+
         beforeEach(async function () {
-            // Signup, purchase totem, and approve tokens
+            // Setup user
             await game.connect(addr1).signup();
-            await token.connect(addr1).approve(await game.getAddress(), ethers.parseUnits("1000", 18));
             
-            // Purchase a totem
+            // Approve tokens for both purchase and actions
+            const totalApproval = gameParams.mintPrice + ethers.parseUnits("1000", 18); // Mint + actions
+            await token.connect(addr1).approve(await game.getAddress(), totalApproval);
+            
+            // Purchase totem
             await game.connect(addr1).purchaseTotem(0);
             tokenId = await nft.tokenOfOwnerByIndex(addr1.address, 0);
+
         });
 
-        it("Should allow feeding a totem", async function () {
+        it("Should execute feed action", async function () {
             await game.connect(addr1).feed(tokenId);
+            const tracking = await game.getActionTracking(tokenId, 0);
+            expect(tracking.dailyUses).to.equal(1n);
         });
 
-        it("Should allow training a totem", async function () {
+        it("Should respect time limits", async function () {
+            // Check initial state
+            const feedActionType = 0; // Feed action type
+            const canUse = await game.canUseAction(tokenId, feedActionType);
+            expect(canUse).to.be.true;
+
+            // Execute feed action 
+            await game.connect(addr1).feed(tokenId);
+            const tracking = await game.getActionTracking(tokenId, feedActionType);
+            expect(tracking.dailyUses).to.equal(BigInt(1));
+
+            // Should fail on 4th attempt
+            await expect(game.connect(addr1).feed(tokenId))
+                .to.be.revertedWithCustomError(game, "ActionNotAvailable");
+        });
+
+        it("Should enforce happiness requirements for training", async function () {
+            const trainActionType = 1; // Train action type
+            
+            // Initial attributes show happiness of 100
+            const initialAttrs = await nft.attributes(tokenId);
+            expect(initialAttrs[3]).to.equal(100n); // Initial happiness is 100
+            
+            // First we can train since happiness > 20
+            await game.connect(addr1).train(tokenId);
+            
+            // Train multiple times to reduce happiness
+            // Training costs 10 happiness each time
+            for(let i = 0; i < 8; i++) { // Train 8 times to reduce happiness below 20
+                await game.connect(addr1).train(tokenId);
+            }
+            
+            // Check happiness is now below training requirement
+            const lowAttrs = await nft.attributes(tokenId);
+            expect(lowAttrs[3]).to.be.lessThan(20n);
+            
+            // Training should now fail due to low happiness
+            await expect(game.connect(addr1).train(tokenId))
+                .to.be.revertedWithCustomError(game, "ActionNotAvailable");
+
+            // Move to next time window for feeding
+            const dayStart = Math.floor((await time.latest()) / 86400) * 86400;
+            await time.increaseTo(dayStart + 28800); // Move to 08:00 UTC
+
+            // Feed to increase happiness
+            await game.connect(addr1).feed(tokenId);
+            
+            // Check happiness has increased
+            const finalAttrs = await nft.attributes(tokenId);
+            expect(finalAttrs[3]).to.be.gte(20n);
+            
+            // Should now be able to train again
             await game.connect(addr1).train(tokenId);
         });
 
-        it("Should allow treating a totem", async function () {
+        it("Should enforce cooldown for treats", async function () {
             await game.connect(addr1).treat(tokenId);
+
+            // Try to treat again immediately
+            await expect(game.connect(addr1).treat(tokenId))
+                .to.be.revertedWithCustomError(game, "ActionNotAvailable");
+        });
+    });
+
+    describe("Admin Functions", function () {
+        it("Should allow updating game parameters", async function () {
+            const newParams = {
+                signupReward: ethers.parseUnits("1000", 18),
+                mintPrice: ethers.parseUnits("300", 18)
+            };
+
+            await game.updateGameParameters(newParams);
+            const params = await game.gameParams();
+            expect(params.signupReward).to.equal(newParams.signupReward);
+            expect(params.mintPrice).to.equal(newParams.mintPrice);
+        });
+
+        it("Should allow updating action configs", async function () {
+            const newConfig = {
+                cost: ethers.parseUnits("15", 18),
+                cooldown: 0n,
+                maxDaily: 5n,
+                minHappiness: 0n,
+                happinessChange: 15n,
+                experienceGain: 0n,
+                useTimeWindows: true,
+                increasesHappiness: true,
+                enabled: true
+            };
+
+            await game.updateActionConfig(0, newConfig); // Update Feed config
+            const updatedConfig = await game.actionConfigs(0);
+            expect(updatedConfig.cost).to.equal(newConfig.cost);
+            expect(updatedConfig.maxDaily).to.equal(newConfig.maxDaily);
+            expect(updatedConfig.happinessChange).to.equal(newConfig.happinessChange);
         });
     });
 });

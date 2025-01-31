@@ -28,6 +28,7 @@ error InsufficientPolBalance();
 error NoPolToWithdraw();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    // Core structs for Game configuration
     enum ActionType {
         Feed,
         Train,
