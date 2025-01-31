@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { safeIncreaseTo } = require('./timeHelpers');
 
 describe("TotemGame", function () {
     let TotemGame, TotemToken, TotemNFT, TotemProxy, TotemProxyAdmin;
@@ -239,10 +240,17 @@ describe("TotemGame", function () {
             await expect(game.connect(addr1).train(tokenId))
                 .to.be.revertedWithCustomError(game, "ActionNotAvailable");
 
-            // Move to next time window for feeding
-            const dayStart = Math.floor((await time.latest()) / 86400) * 86400;
-            await time.increaseTo(dayStart + 28800); // Move to 08:00 UTC
-
+            const latestBlock = await time.latest();
+            const dayStart = Math.floor(latestBlock / 86400) * 86400;
+            let targetTime = dayStart + 28800; // 08:00 UTC
+            
+            // Ensure we're not going backwards
+            if (targetTime <= latestBlock) {
+                targetTime += 86400; // Move to the next day
+            }
+            
+            await time.increaseTo(targetTime + 1); // Ensure the block is valid
+            
             // Feed to increase happiness
             await game.connect(addr1).feed(tokenId);
             
