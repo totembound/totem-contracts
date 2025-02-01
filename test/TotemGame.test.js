@@ -28,9 +28,29 @@ describe("TotemGame", function () {
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
         const oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
 
-        // Deploy TotemToken
+        // Deploy implementation
         TotemToken = await ethers.getContractFactory("TotemToken");
-        token = await TotemToken.deploy(await oracle.getAddress());
+        const implementation = await TotemToken.deploy();
+
+        // Deploy proxy admin
+        const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
+        proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
+
+        // Prepare initialization data
+        const initTokenData = TotemToken.interface.encodeFunctionData("initialize", [
+            await oracle.getAddress()
+        ]);
+
+        // Deploy proxy
+        const TotemProxy = await ethers.getContractFactory("TotemProxy");
+        tokenProxy = await TotemProxy.deploy(
+            await implementation.getAddress(),
+            await proxyAdmin.getAddress(),
+            initTokenData
+        );
+
+        // Get token interface at proxy address
+        token = await ethers.getContractAt("TotemToken", await tokenProxy.getAddress());
 
         // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
@@ -50,7 +70,6 @@ describe("TotemGame", function () {
         ]);
 
         // Deploy and initialize proxy
-        const TotemProxy = await ethers.getContractFactory("TotemProxy");
         proxy = await TotemProxy.deploy(
             await gameImpl.getAddress(),
             owner.address,

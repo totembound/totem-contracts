@@ -4,6 +4,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("TotemToken", function () {
     let TotemToken, token, owner, addr1, addr2, oracle;
+    let proxyAdmin, tokenProxy;
     const TOTAL_SUPPLY = ethers.parseUnits("1000000000", 18); // 1 billion tokens
     
     // Categories as enum
@@ -35,9 +36,29 @@ describe("TotemToken", function () {
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
         oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
         
-        // Deploy token
+        // Deploy implementation
         TotemToken = await ethers.getContractFactory("TotemToken");
-        token = await TotemToken.deploy(await oracle.getAddress());
+        const implementation = await TotemToken.deploy();
+
+        // Deploy proxy admin
+        const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
+        proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
+
+        // Prepare initialization data
+        const initData = TotemToken.interface.encodeFunctionData("initialize", [
+            await oracle.getAddress()
+        ]);
+
+        // Deploy proxy
+        const TotemProxy = await ethers.getContractFactory("TotemProxy");
+        tokenProxy = await TotemProxy.deploy(
+            await implementation.getAddress(),
+            await proxyAdmin.getAddress(),
+            initData
+        );
+
+        // Get token interface at proxy address
+        token = await ethers.getContractAt("TotemToken", await tokenProxy.getAddress());
     });
 
     describe("Deployment", function () {
@@ -56,18 +77,55 @@ describe("TotemToken", function () {
             }
         });
 
-        it("Should emit TokenCreated and TokenAllocationsInitialized events", async function () {
-            // For deployment events, we need to deploy the contract within the test
-            const newToken = await (await ethers.getContractFactory("TotemToken"))
-                .deploy(await oracle.getAddress());
-
-            await expect(newToken.deploymentTransaction())
-                .to.emit(newToken, "TokenCreated")
-                .withArgs(owner.address, TOTAL_SUPPLY, await time.latest());
-            
-            await expect(newToken.deploymentTransaction())
-                .to.emit(newToken, "TokenAllocationsInitialized");
+        it("Should set correct proxy admin", async function () {
+            // Get proxy admin from proxy
+            expect(await proxyAdmin.owner()).to.equal(owner.address);
         });
+
+        it("Should not allow reinitialization", async function () {
+            await expect(
+                token.initialize(await oracle.getAddress())
+            ).to.be.revertedWithCustomError(token, "InvalidInitialization"); // From Initializable
+        });
+    });
+
+    describe("Upgrades", function () {
+      it("Should allow owner to upgrade implementation", async function () {
+          // Deploy new implementation
+          const TotemTokenV2 = await ethers.getContractFactory("TotemToken");
+          const newImplementation = await TotemTokenV2.deploy();
+
+          // Upgrade directly through the proxy contract (UUPS pattern)
+          await token.upgradeToAndCall(await newImplementation.getAddress(), "0x");
+
+          // Verify upgrade by checking the implementation address
+          const implementationSlot = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
+          const implementationAddress = await ethers.provider.getStorage(
+              await tokenProxy.getAddress(), 
+              implementationSlot
+          );
+
+          // Remove padding from the storage value
+          const cleanImplementationAddress = "0x" + implementationAddress.slice(-40);
+
+          expect(cleanImplementationAddress.toLowerCase())
+              .to.equal((await newImplementation.getAddress()).toLowerCase());
+      });
+
+      it("Should not allow non-owner to upgrade", async function () {
+          const TotemTokenV2 = await ethers.getContractFactory("TotemToken");
+          const newImplementation = await TotemTokenV2.deploy();
+
+          await expect(
+              token.connect(addr1).upgradeToAndCall(
+                  await newImplementation.getAddress(),
+                  "0x"
+              )
+          ).to.be.revertedWithCustomError(
+              token,
+              "OwnableUnauthorizedAccount"
+          );
+      });
     });
 
     describe("Allocation Management", function () {
