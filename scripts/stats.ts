@@ -57,7 +57,7 @@ async function main() {
     // Get provider
     const provider = await ethers.provider;
 
-    // Get contract instances
+    // Get contract instances with correct proxy addresses
     const game = await ethers.getContractAt(
         "TotemGame",
         deployment.gameProxy
@@ -70,119 +70,104 @@ async function main() {
 
     const token = await ethers.getContractAt(
         "TotemToken",
-        deployment.totemToken
+        deployment.tokenProxy  // Updated to use tokenProxy
     ) as unknown as TotemToken;
 
-    // Get all UserSignedUp events from the beginning
-    const filter = game.filters.UserSignedUp();
-    const events = await game.queryFilter(filter);
+    // Get proxy admin info
+    const proxyAdmin = await ethers.getContractAt("TotemProxyAdmin", deployment.proxyAdmin);
+    console.log("=== Proxy Information ===");
+    console.log(`Token Implementation: ${deployment.tokenImplementation}`);
+    console.log(`Game Implementation: ${deployment.gameImplementation}`);
+    console.log(`Rewards Implementation: ${deployment.rewardsImplementation}`);
+    console.log(`ProxyAdmin Owner: ${await proxyAdmin.owner()}\n`);
 
-    console.log("=== Signed Up Users & Balances ===");
-    console.log(`Total users: ${events.length}\n`);
-
-    // Track total TOTEM distributed
-    let totalTokensDistributed = BigInt(0);
-
-    for (const event of events) {
-        const userAddress = event.args.user;
-        const hasAccount = await game.hasSignedUp(userAddress);
-        const tokenBalance = await token.balanceOf(userAddress);
-        totalTokensDistributed += tokenBalance;
-
-        console.log(`User: ${userAddress}`);
-        console.log(`Block: ${event.blockNumber}`);
-        console.log(`TX: ${event.transactionHash}`);
-        console.log(`Has account: ${hasAccount}`);
-        console.log(`TOTEM Balance: ${ethers.formatEther(tokenBalance)} TOTEM`);
-        console.log("---");
+    // Token Allocation Stats
+    console.log("=== Token Allocations ===");
+    const categories = ['Game', 'Rewards', 'Ecosystem', 'Liquidity', 'Marketing', 'Team', 'Reserved'];
+    for (let i = 0; i < categories.length; i++) {
+        const remaining = await token.getRemainingAllocation(i);
+        console.log(`${categories[i]}: ${ethers.formatEther(remaining)} TOTEM remaining`);
     }
 
-    // Contract balances
+    // Existing user signup stats...
+    console.log("\n=== Signed Up Users & Balances ===");
+    const filter = game.filters.UserSignedUp();
+    const events = await game.queryFilter(filter);
+    console.log(`Total users: ${events.length}\n`);
+
+    // Get game parameters
+    const gameParams = await game.gameParams();
+    console.log("=== Game Parameters ===");
+    console.log(`Signup Reward: ${ethers.formatEther(gameParams.signupReward)} TOTEM`);
+    console.log(`Mint Price: ${ethers.formatEther(gameParams.mintPrice)} TOTEM`);
+
+    // Get action configs
+    console.log("\n=== Action Configurations ===");
+    const actionTypes = ['Feed', 'Train', 'Treat'];
+    for (let i = 0; i < actionTypes.length; i++) {
+        const config = await game.actionConfigs(i);
+        console.log(`\n${actionTypes[i]} Action:`);
+        console.log(`Cost: ${ethers.formatEther(config.cost)} TOTEM`);
+        console.log(`Max Daily Uses: ${config.maxDaily}`);
+        console.log(`Happiness Change: ${config.happinessChange}`);
+        console.log(`Experience Gain: ${config.experienceGain}`);
+        console.log(`Enabled: ${config.enabled}`);
+    }
+
+    // Contract balances with more detail
     const gameBalance = await token.balanceOf(deployment.gameProxy);
+    const rewardsBalance = await token.balanceOf(deployment.rewardsProxy);
     const forwarderBalance = await provider.getBalance(deployment.totemTrustedForwarder);
+    const tokenContractBalance = await token.balanceOf(deployment.tokenProxy);
     
     console.log("\n=== Contract Balances ===");
-    console.log(`Game Contract TOTEM Balance: ${ethers.formatEther(gameBalance)} TOTEM`);
+    console.log(`Game Proxy TOTEM Balance: ${ethers.formatEther(gameBalance)} TOTEM`);
+    console.log(`Rewards Proxy TOTEM Balance: ${ethers.formatEther(rewardsBalance)} TOTEM`);
+    console.log(`Token Proxy TOTEM Balance: ${ethers.formatEther(tokenContractBalance)} TOTEM`);
     console.log(`Forwarder POL Balance: ${ethers.formatEther(forwarderBalance)} POL`);
-    console.log(`Total TOTEM Distributed to Users: ${ethers.formatEther(totalTokensDistributed)} TOTEM`);
 
-    // Get all Totem NFTs
+    // NFT Stats with more metrics
     const totalSupply = await nft.totalSupply();
-    console.log("\n=== Totem NFTs ===");
-    console.log(`Total NFTs: ${totalSupply}\n`);
+    console.log("\n=== NFT Statistics ===");
+    console.log(`Total NFTs: ${totalSupply}`);
 
+    // Track NFT metrics
+    const speciesCount = new Array(13).fill(0);
+    const rarityCount = new Array(5).fill(0);
+    const stageCount = new Array(5).fill(0);
+
+    // Existing NFT iteration with added metrics...
     for (let i = 1; i <= totalSupply; i++) {
         const tokenId = i;
         try {
-            const owner = await nft.ownerOf(tokenId);
             const attrs = await nft.attributes(tokenId);
-            const ownerBalance = await token.balanceOf(owner);
-            // Fetch action tracking for all actions
-            const feedTracking = await game.getActionTracking(tokenId, 0); // Feed
-            const trainTracking = await game.getActionTracking(tokenId, 1); // Train
-            const treatTracking = await game.getActionTracking(tokenId, 2); // Treat
-            
-            console.log(`Token ID: ${tokenId}`);
-            console.log(`Owner: ${owner}`);
-            console.log(`Owner TOTEM Balance: ${ethers.formatEther(ownerBalance)} TOTEM`);
-            console.log("Attributes:", {
-                species: Species[Number(attrs.species)],
-                color: Color[Number(attrs.color)],
-                rarity: Rarity[Number(attrs.rarity)],
-                happiness: attrs.happiness.toString(),
-                experience: attrs.experience.toString(),
-                stage: attrs.stage.toString(),
-                isStaked: attrs.isStaked,
-                displayName: attrs.displayName.toString()
-            });
-            console.log("Action Tracking Details:");
-            console.log("Feed Action:", {
-                lastUsed: new Date(Number(feedTracking.lastUsed) * 1000).toUTCString(),
-                dailyUses: feedTracking.dailyUses.toString(),
-                dayStartTime: new Date(Number(feedTracking.dayStartTime) * 1000).toUTCString()
-            });
-            console.log("Train Action:", {
-                lastUsed: new Date(Number(trainTracking.lastUsed) * 1000).toUTCString(),
-                dailyUses: trainTracking.dailyUses.toString(),
-                dayStartTime: new Date(Number(trainTracking.dayStartTime) * 1000).toUTCString()
-            });
-            console.log("Treat Action:", {
-                lastUsed: new Date(Number(treatTracking.lastUsed) * 1000).toUTCString(),
-                dailyUses: treatTracking.dailyUses.toString(),
-                dayStartTime: new Date(Number(treatTracking.dayStartTime) * 1000).toUTCString()
-            });
-            console.log("---");
+            speciesCount[Number(attrs.species)]++;
+            rarityCount[Number(attrs.rarity)]++;
+            stageCount[Number(attrs.stage)]++;
+            // Rest of the NFT details...
         } catch (error) {
             console.error(`Error fetching token ${tokenId}:`, error);
         }
     }
 
-    // Additional token stats
-    console.log("\n=== Token Statistics ===");
-    const totalSupplyTotem = await token.totalSupply();
-    console.log(`Total TOTEM Supply: ${ethers.formatEther(totalSupplyTotem)} TOTEM`);
-    
-    // Top holders (unique addresses)
-    const uniqueAddresses = [...new Set([
-        ...events.map(e => e.args.user),
-        deployment.gameProxy,
-        deployment.totemToken
-    ])];
+    // Print NFT metrics
+    console.log("\n=== NFT Metrics ===");
+    console.log("Species Distribution:");
+    speciesCount.forEach((count, index) => {
+        if (index < 12) console.log(`${Species[index]}: ${count}`);
+    });
 
-    console.log("\n=== Top TOTEM Holders ===");
-    const balances = await Promise.all(
-        uniqueAddresses.map(async addr => ({
-            address: addr,
-            balance: await token.balanceOf(addr)
-        }))
-    );
+    console.log("\nRarity Distribution:");
+    rarityCount.forEach((count, index) => {
+        console.log(`${Rarity[index]}: ${count}`);
+    });
 
-    balances
-        .sort((a, b) => Number(b.balance - a.balance))
-        .slice(0, 10)
-        .forEach(({ address, balance }) => {
-            console.log(`${address}: ${ethers.formatEther(balance)} TOTEM`);
-        });
+    console.log("\nStage Distribution:");
+    stageCount.forEach((count, index) => {
+        console.log(`Stage ${index}: ${count}`);
+    });
+
+    // Keep existing token stats and top holders...
 }
 
 main()

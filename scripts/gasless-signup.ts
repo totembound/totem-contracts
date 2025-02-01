@@ -34,7 +34,7 @@ async function main() {
 
     const token = await ethers.getContractAt(
         "TotemToken",
-        deployment.totemToken
+        deployment.tokenProxy
     ) as unknown as TotemToken;
 
     // Get all initial balances

@@ -1,14 +1,14 @@
-// verify-setup.ts
+// verify-local.ts
 import { ethers } from "hardhat";
 import { loadDeployment } from "./helpers";
 
 async function main() {
     const deployment = loadDeployment("localhost");
     
-    // Get contract instances
+    // Get contract instances - updated with new proxy addresses
     const forwarder = await ethers.getContractAt("TotemTrustedForwarder", deployment.totemTrustedForwarder);
     const game = await ethers.getContractAt("TotemGame", deployment.gameProxy);
-    const token = await ethers.getContractAt("TotemToken", deployment.totemToken);
+    const token = await ethers.getContractAt("TotemToken", deployment.tokenProxy); // Changed from totemToken
     const nft = await ethers.getContractAt("TotemNFT", deployment.totemNFT);
 
     console.log("\nVerifying contract setup...");
@@ -34,11 +34,11 @@ async function main() {
         throw new Error("Game contract's trusted forwarder mismatch!");
     }
     
-     // 3. Check contract owners
-     const [deployer] = await ethers.getSigners();
-     console.log("\nVerifying contract owners...");
+    // 3. Check contract owners
+    const [deployer] = await ethers.getSigners();
+    console.log("\nVerifying contract owners...");
      
-     const gameOwner = await game.owner();
+    const gameOwner = await game.owner();
     console.log("Game owner:", gameOwner);
     console.log("Expected game owner:", deployer.address);
     if (gameOwner.toLowerCase() !== deployer.address.toLowerCase()) {
@@ -59,6 +59,15 @@ async function main() {
         throw new Error("NFT owner mismatch!");
     }
 
+    // Add verification of proxy admin ownership
+    const proxyAdmin = await ethers.getContractAt("TotemProxyAdmin", deployment.proxyAdmin);
+    const proxyAdminOwner = await proxyAdmin.owner();
+    console.log("\nProxy Admin owner:", proxyAdminOwner);
+    console.log("Expected Proxy Admin owner:", deployer.address);
+    if (proxyAdminOwner.toLowerCase() !== deployer.address.toLowerCase()) {
+        throw new Error("Proxy Admin owner mismatch!");
+    }
+
     // 4. Check forwarder POL balance
     const balance = await ethers.provider.getBalance(deployment.totemTrustedForwarder);
     console.log("\nForwarder POL balance:", ethers.formatEther(balance));
@@ -76,4 +85,3 @@ main()
         console.error(error);
         process.exit(1);
     });
-    
