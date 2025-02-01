@@ -6,34 +6,69 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ITotemPriceOracle.sol";
 
+error InvalidOracleAddress();
+error InvalidOracleImplementation();
+error InvalidAmount();
+error InsufficientAllocation();
+error CannotRecoverToken();
+
 contract TotemToken is ERC20, Pausable, Ownable {
+    // Core structs for Token configuration
+    enum AllocationCategory {
+        Game,
+        Rewards,
+        Reserved,
+        Marketing,
+        Liquidity,
+        Team
+    }
+
+    // State variables
+    mapping(AllocationCategory => uint256) private allocations;
     ITotemPriceOracle public priceOracle;
-    address public gameProxy;
-    bool public gameplayTokensTransferred;
+
+    // Events
+    event OracleUpdated(address newOracle);
+    event AllocationTransferred(
+        AllocationCategory category, 
+        address indexed recipient, 
+        uint256 amount
+    );
+    event CrossCategoryTransfer(
+        AllocationCategory indexed fromCategory,
+        AllocationCategory indexed toCategory,
+        uint256 amount
+    );
+    event TokenCreated(
+        address indexed creator, 
+        uint256 totalSupply, 
+        uint256 timestamp
+    );
+    event TokenAllocationsInitialized();
 
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 10**18; // 1 billion tokens
 
-    event OracleUpdated(address newOracle);
-    event GameProxyUpdated(address newProxy);
-    event GameplayTokensTransferred(address indexed proxyAddress, uint256 amount);
-
     constructor(address initialOracle) ERC20("TotemToken", "TOTEM") Ownable(msg.sender) {
-        require(initialOracle != address(0), "Invalid oracle address");
+        if (initialOracle == address(0)) revert InvalidOracleAddress();
         priceOracle = ITotemPriceOracle(initialOracle);
 
-        uint256 initialGameplayTokens = (TOTAL_SUPPLY * 25) / 100;  // 25%
-        uint256 reservedGameplayTokens = (TOTAL_SUPPLY * 25) / 100; // 25%
-        uint256 teamAllocation = (TOTAL_SUPPLY * 20) / 100;         // 20%
-        uint256 marketingAllocation = (TOTAL_SUPPLY * 15) / 100;    // 15%
-        uint256 liquidityAllocation = (TOTAL_SUPPLY * 10) / 100;    // 10%
-        uint256 reserveAllocation = (TOTAL_SUPPLY * 5) / 100;       // 5%
+        // Direct allocation amounts
+        allocations[AllocationCategory.Game] = 250_000_000 * 10**18;      // 250M 25%
+        allocations[AllocationCategory.Rewards] = 150_000_000 * 10**18;   // 150M 15%
+        allocations[AllocationCategory.Reserved] = 50_000_000 * 10**18;   //  50M  5%
+        allocations[AllocationCategory.Marketing] = 150_000_000 * 10**18; // 150M 15%
+        allocations[AllocationCategory.Liquidity] = 100_000_000 * 10**18; // 100M 10%
+        allocations[AllocationCategory.Team] = 200_000_000 * 10**18;      // 200M 20%
 
-        _mint(address(this), initialGameplayTokens);
-        _mint(msg.sender, reservedGameplayTokens);
-        _mint(msg.sender, teamAllocation);
-        _mint(msg.sender, marketingAllocation);
-        _mint(msg.sender, liquidityAllocation);
-        _mint(msg.sender, reserveAllocation);
+        // Mint to contract initially
+        _mint(address(this), TOTAL_SUPPLY);
+
+        emit TokenCreated(
+            msg.sender, 
+            TOTAL_SUPPLY, 
+            block.timestamp
+        );
+        emit TokenAllocationsInitialized();
     }
 
     function getTokenPrice() external view returns (uint256) {
@@ -44,33 +79,71 @@ contract TotemToken is ERC20, Pausable, Ownable {
         return priceOracle.getLastUpdate();
     }
 
+    function transferAllocation(
+        AllocationCategory fromCategory,
+        address recipient,
+        uint256 amount
+    ) external onlyOwner whenNotPaused returns (uint256 remainingAllocation) {
+        if (amount <= 0) revert InvalidAmount();
+        if (amount > allocations[fromCategory]) revert InsufficientAllocation();
+
+        // Subtract from the specific category allocation
+        allocations[fromCategory] -= amount;
+
+        // Transfer tokens
+        _transfer(address(this), recipient, amount);
+
+        // Emit event
+        emit AllocationTransferred(fromCategory, recipient, amount);
+
+        // Return remaining allocation
+        return allocations[fromCategory];
+    }
+
+    function transferBetweenCategories(
+        AllocationCategory fromCategory,
+        AllocationCategory toCategory,
+        uint256 amount
+    ) external onlyOwner whenNotPaused returns (uint256 remainingFromAllocation) {
+        if (amount <= 0) revert InvalidAmount();
+        if (amount > allocations[fromCategory]) revert InsufficientAllocation();
+
+        // Subtract from the source category
+        allocations[fromCategory] -= amount;
+        
+        // Add to the destination category
+        allocations[toCategory] += amount;
+
+        // Emit event
+        emit CrossCategoryTransfer(fromCategory, toCategory, amount);
+
+        // Return remaining allocation of the source category
+        return allocations[fromCategory];
+    }
+
+    function getRemainingAllocation(AllocationCategory category) external view returns (uint256) {
+        return allocations[category];
+    }
+
+    function getAllRemainingAllocations() external view returns (uint256[] memory) {
+        uint256[] memory remainingAllocations = new uint256[](6);
+    
+        remainingAllocations[0] = allocations[AllocationCategory.Game];
+        remainingAllocations[1] = allocations[AllocationCategory.Rewards];
+        remainingAllocations[2] = allocations[AllocationCategory.Reserved];
+        remainingAllocations[3] = allocations[AllocationCategory.Marketing];
+        remainingAllocations[4] = allocations[AllocationCategory.Liquidity];
+        remainingAllocations[5] = allocations[AllocationCategory.Team];
+        
+        return remainingAllocations;
+    }
+
     function updateOracle(address newOracle) external onlyOwner {
-        require(newOracle != address(0), "Invalid oracle address");
-        // Optional: Add additional validation for the new oracle
-        require(ITotemPriceOracle(newOracle).getPrice() > 0, "Invalid oracle implementation");
+        if (newOracle == address(0)) revert InvalidOracleAddress();
+        if (ITotemPriceOracle(newOracle).getPrice() <= 0) revert InvalidOracleImplementation();
         
         priceOracle = ITotemPriceOracle(newOracle);
         emit OracleUpdated(newOracle);
-    }
-
-    function updateGameProxy(address newProxy) external onlyOwner {
-        require(newProxy != address(0), "Invalid proxy");
-        require(!gameplayTokensTransferred, "Tokens already transferred");
-        gameProxy = newProxy;
-        emit GameProxyUpdated(newProxy);
-    }
-
-    function transferGameplayAllocation() external onlyOwner whenNotPaused {
-        require(gameProxy != address(0), "Game proxy not set");
-        require(!gameplayTokensTransferred, "Gameplay tokens already transferred");
-
-        uint256 gameplayBalance = balanceOf(address(this));
-        require(gameplayBalance > 0, "No gameplay tokens to transfer");
-
-        gameplayTokensTransferred = true;
-        _transfer(address(this), gameProxy, gameplayBalance);
-        
-        emit GameplayTokensTransferred(gameProxy, gameplayBalance);
     }
 
     // Override transfer functions to enforce pause
@@ -97,7 +170,7 @@ contract TotemToken is ERC20, Pausable, Ownable {
 
     // Emergency functions
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(tokenAddress != address(this), "Cannot recover TOTEM");
+        if (tokenAddress == address(this)) revert CannotRecoverToken();
         IERC20(tokenAddress).transfer(owner(), tokenAmount);
     }
 }
