@@ -384,25 +384,29 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Override required functions
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function _msgSender() internal view override returns (address sender) {
         if (msg.sender == trustedForwarder) {
+            // Extract the original sender from the end of the calldata
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
             }
-        } else {
-            return super._msgSender();
+       }
+       else {
+            // Directly return msg.sender for non-forwarder calls
+            sender = msg.sender;
         }
+        return sender;
     }
 
     function _msgData() internal view override returns (bytes calldata) {
         if (msg.sender == trustedForwarder) {
+            // Remove the last 20 bytes (address) from the calldata
             return msg.data[:msg.data.length - 20];
-        } else {
-            return super._msgData();
+        }
+        else {
+            return msg.data;
         }
     }
 }
