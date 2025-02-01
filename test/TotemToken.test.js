@@ -10,20 +10,22 @@ describe("TotemToken", function () {
     const AllocationCategory = {
         Game: 0,
         Rewards: 1,
-        Reserved: 2,
-        Marketing: 3,
-        Liquidity: 4,
-        Team: 5
+        Ecosystem: 2,
+        Liquidity: 3,
+        Marketing: 4,
+        Team: 5,
+        Reserved: 6
     };
 
     // Expected initial allocations
     const INITIAL_ALLOCATIONS = {
         [AllocationCategory.Game]: ethers.parseUnits("250000000", 18),      // 250M (25%)
         [AllocationCategory.Rewards]: ethers.parseUnits("150000000", 18),   // 150M (15%)
-        [AllocationCategory.Reserved]: ethers.parseUnits("50000000", 18),   // 50M (5%)
-        [AllocationCategory.Marketing]: ethers.parseUnits("150000000", 18), // 150M (15%)
+        [AllocationCategory.Ecosystem]: ethers.parseUnits("100000000", 18), // 100M (10%)
         [AllocationCategory.Liquidity]: ethers.parseUnits("100000000", 18), // 100M (10%)
-        [AllocationCategory.Team]: ethers.parseUnits("200000000", 18)       // 200M (20%)
+        [AllocationCategory.Marketing]: ethers.parseUnits("150000000", 18), // 150M (15%)
+        [AllocationCategory.Team]: ethers.parseUnits("200000000", 18),      // 200M (20%)
+        [AllocationCategory.Reserved]: ethers.parseUnits("50000000", 18)    // 50M (5%)
     };
 
     beforeEach(async function () {
@@ -134,7 +136,7 @@ describe("TotemToken", function () {
 
         it("Should reject invalid oracle addresses", async function () {
             await expect(token.updateOracle(ethers.ZeroAddress))
-                .to.be.revertedWithCustomError(token, "InvalidOracleAddress");
+                .to.be.revertedWithCustomError(token, "InvalidAddress");
         });
     });
 
@@ -179,6 +181,16 @@ describe("TotemToken", function () {
                     [token, owner],
                     [ethers.parseUnits("-1", 18), ethers.parseUnits("1", 18)]
                 );
+        });
+
+        it("Should not recover when token address is zero", async function () {
+          await expect(token.recoverERC20(ethers.ZeroAddress, ethers.parseUnits("1", 18)))
+              .to.be.revertedWithCustomError(token, "InvalidAddress");
+        });
+
+        it("Should not recover when token address is token", async function () {
+          await expect(token.recoverERC20(token, ethers.parseUnits("1", 18)))
+              .to.be.revertedWithCustomError(token, "CannotRecoverToken");
         });
 
         it("Should not recover TOTEM tokens", async function () {
