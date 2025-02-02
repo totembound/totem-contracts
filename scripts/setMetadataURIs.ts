@@ -16,11 +16,54 @@ async function main() {
         deployment.totemNFT
     ) as unknown as TotemNFT;
 
-    // Define metadata URIs for the Common Gray Owl
-    const species: number[] = [11, 11, 11, 11, 11]; // Assuming "11" represents the Owl species
-    const colors:  number[] = [1, 1, 1, 1, 1];      // Assuming "1" represents the Gray color
-    const stages:  number[] = [0, 1, 2, 3, 4];      // Stages 0 to 4
+    // Define metadata URIs for the Common Owl
+
+    // Assuming "11" represents the Owl species
+    const species: number[] = [11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11
+    ];
+    // Assuming "1" represents the Gray color
+    const colors:  number[] = [0, 0, 0, 0, 0,
+        1, 1, 1, 1, 1,
+        2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3,
+        4, 4, 4, 4, 4
+    ];
+    // Stages 0 to 4
+    const stages:  number[] = [0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4
+    ];
     const ipfsHashes: string[] = [
+        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
+        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
+        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
+        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
+        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+// TODO: these are dupes for now for testing
+        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
+        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
+        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
+        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
+        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+
+        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
+        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
+        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
+        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
+        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+
+        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
+        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
+        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
+        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
+        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+
         "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
         "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
         "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
