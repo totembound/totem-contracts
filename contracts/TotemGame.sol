@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -220,8 +220,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             revert PurchaseFailed();
         
         // Mint their chosen totem
-        // For now, all mints are Common rarity
-        uint256 tokenId = totemNFT.mint(_msgSender(), TotemNFT.Species(speciesId), TotemNFT.Rarity.Common);
+        uint256 tokenId = totemNFT.mint(_msgSender(), TotemNFT.Species(speciesId));
 
          // Initialize action tracking
         _initializeActionTracking(tokenId);

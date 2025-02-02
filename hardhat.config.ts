@@ -6,7 +6,21 @@ import "solidity-coverage";
 import "dotenv/config";
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.28",
+  solidity: {
+    version: "0.8.22",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      }
+    }
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
+  },
   defaultNetwork: "hardhat",
   typechain: {
     outDir: "typechain-types",
