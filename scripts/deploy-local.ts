@@ -31,6 +31,20 @@ async function main() {
     const nftAddress = await totemNFT.getAddress();
     console.log("TotemNFT deployed to:", nftAddress);
 
+    // 3a. Deploy MockRandomOracle for local development
+    console.log("\nDeploying MockRandomOracle...");
+    const MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
+    const mockRandomOracle = await MockRandomOracle.deploy();
+    await mockRandomOracle.waitForDeployment();
+    const mockRandomOracleAddress = await mockRandomOracle.getAddress();
+    console.log("MockRandomOracle deployed to:", mockRandomOracleAddress);
+
+    // 3b. Set random oracle in NFT contract
+    console.log("\nSetting random oracle in NFT contract...");
+    const setRandomOracleTx = await totemNFT.setRandomOracle(mockRandomOracleAddress);
+    await setRandomOracleTx.wait();
+    console.log("Random oracle set in NFT contract");
+
     // 4. Deploy TotemTrustedForwarder
     console.log("\nDeploying TotemTrustedForwarder...");
     const TotemTrustedForwarder = await ethers.getContractFactory("TotemTrustedForwarder");

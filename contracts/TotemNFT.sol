@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./helpers/RandomnessHelper.sol";
+import "./interfaces/ITotemRandomOracle.sol";
 
 error InvalidSpecies();
 error NoValidColorForRarity();
@@ -18,8 +20,12 @@ error NotTokenOwner();
 error InvalidNameFormat();
 error InvalidUTF8();
 error URINotSet();
+error InvalidAddress();
+error RandomRequestNotFulfilled();
 
 contract TotemNFT is ERC721Enumerable, Ownable {
+    using RandomnessHelper for uint256;
+
     enum Species {
         Goose,      // 0
         Otter,      // 1
@@ -71,6 +77,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     // Mapping from token ID to attributes
     mapping(uint256 => TotemAttributes) public attributes;
+    ITotemRandomOracle public randomOracle;
 
     // Mapping for complete IPFS hashes: species => color => stage => hash
     mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
@@ -119,25 +126,34 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     function mint(
         address to, 
-        Species species,
-        Rarity rarity
+        Species species
     ) external onlyOwner returns (uint256) {
         if (species == Species.None) revert InvalidSpecies();
         uint256 tokenId = totalSupply() + 1;
         
+        // Request randomness for rarity and color
+        uint256 requestId = randomOracle.requestRandomness(2);
+        // Get random values
+        (bool fulfilled, uint256[] memory randomWords) = randomOracle.getRequestStatus(requestId);
+        if (fulfilled == false) revert RandomRequestNotFulfilled();
+
+        // Determine rarity and color
+        uint8 rarity = RandomnessHelper.getRarity(randomWords[0]);
+        uint8 color = RandomnessHelper.getColorForRarity(randomWords[1], rarity);
+
         // For now, all mints are Common rarity
-        rarity = Rarity.Common;
+        //rarity = Rarity.Common;
 
         // Assign a valid color for this rarity
-        Color color = getValidColorForRarity(rarity);
-        if (color == Color.None) revert NoValidColorForRarity();
+        //Color color = getValidColorForRarity(rarity);
+        if (Color(color) == Color.None) revert NoValidColorForRarity();
 
         // For now, all mints are Common rarity
         // Later this will be determined by oracle
         attributes[tokenId] = TotemAttributes({
             species: species,
-            color: color,
-            rarity: rarity,
+            color: Color(color),
+            rarity: Rarity(rarity),
             happiness: 100,
             experience: 0,
             stage: 0,
@@ -231,6 +247,11 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         if (color == Color.None) revert InvalidColor();
         _metadataURIs[species][color][stage] = ipfsHash;
         emit MetadataURISet(species, color, stage, ipfsHash);
+    }
+
+    function setRandomOracle(address _oracle) external onlyOwner {
+        if (_oracle == address(0)) revert InvalidAddress();
+        randomOracle = ITotemRandomOracle(_oracle);
     }
 
     // Batch set metadata URIs for efficiency
