@@ -24,6 +24,10 @@ describe("TotemGame", function () {
     beforeEach(async function () {
         [owner, addr1, addr2, trustedForwarder] = await ethers.getSigners();
 
+        // Deploy mock random oracle first
+        MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
+        randomOracle = await MockRandomOracle.deploy();
+
         // Deploy price oracle
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
         const oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
@@ -55,6 +59,9 @@ describe("TotemGame", function () {
         // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
         nft = await TotemNFT.deploy();
+
+        // Set up random oracle for NFT
+        await nft.setRandomOracle(await randomOracle.getAddress());
 
         // Deploy Game Implementation and Proxy
         TotemGame = await ethers.getContractFactory("TotemGame");
