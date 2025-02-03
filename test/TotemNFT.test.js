@@ -14,9 +14,25 @@ describe("TotemNFT", function () {
         MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
         randomOracle = await MockRandomOracle.deploy();
 
+        // Deploy proxy admin
+        const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
+        proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
+
         // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
-        nft = await TotemNFT.deploy();
+        const nftImplementation = await TotemNFT.deploy();
+        const initNFTData = TotemNFT.interface.encodeFunctionData("initialize");
+
+        // Deploy proxy
+        const TotemProxy = await ethers.getContractFactory("TotemProxy");
+        const nftProxy = await TotemProxy.deploy(
+            await nftImplementation.getAddress(),
+            await proxyAdmin.getAddress(),
+            initNFTData
+        );
+
+         // Get NFT interface at proxy address
+         nft = await ethers.getContractAt("TotemNFT", await nftProxy.getAddress());
 
         // Set random oracle
         await nft.setRandomOracle(await randomOracle.getAddress());
@@ -103,12 +119,23 @@ describe("TotemNFT", function () {
             const attrs = await nft.attributes(tokenId);
             expect(attrs.stage).to.equal(1);
         });
-    
+
         it("Should fail evolution with insufficient experience", async function () {
+            // Explicitly check initial experience and first stage threshold
+            const initialAttrs = await nft.attributes(tokenId);
+            const firstStageThreshold = await nft.stageThresholds(0);
+
+            console.log('Initial Experience:', initialAttrs.experience.toString());
+            console.log('First Stage Threshold:', firstStageThreshold.toString());
+
+            // Ensure the initial experience is less than the first stage threshold
+            expect(initialAttrs.experience).to.be.lt(firstStageThreshold);
+
+            // Now attempt to evolve
             await expect(nft.connect(addr1).evolve(tokenId))
                 .to.be.revertedWithCustomError(nft, "InsufficientExperience");
         });
-    
+
         it("Should fail evolution at max stage", async function () {
             // Fast track to max stage
             await nft.updateAttributes(tokenId, 0, true, 7500);
