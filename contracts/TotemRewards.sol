@@ -4,8 +4,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./interfaces/ITotemAchievements.sol";
 import "./TotemToken.sol";
 
+error InvalidAddress();
 error InvalidBaseAmount();
 error InvalidInterval();
 error InvalidStreakBonus();
@@ -72,6 +74,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // State variables
     TotemToken public totemToken;
+    ITotemAchievements public achievements;
     address public trustedForwarder;
     
     // Mappings for reward tracking
@@ -346,6 +349,11 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (tier >= rewardInfo[rewardId].config.protectionTierCount)
             revert InvalidProtectionTier();
         return rewardInfo[rewardId].protectionTiers[tier];
+    }
+
+    function setAchievements(address _achievements) external onlyOwner {
+        if (_achievements == address(0)) revert InvalidAddress();
+        achievements = ITotemAchievements(_achievements);
     }
 
     // Metadata functions

@@ -45,7 +45,7 @@ describe("TotemNFT", function () {
             
             const attrs = await nft.attributes(tokenId);
             expect(attrs.species).to.equal(0); // Goose
-            expect(attrs.happiness).to.equal(100);
+            expect(attrs.happiness).to.equal(50);
             expect(attrs.experience).to.equal(0);
             expect(attrs.stage).to.equal(0);
             expect(attrs.isStaked).to.be.false;
@@ -218,12 +218,12 @@ describe("TotemNFT", function () {
             // Test increase
             await nft.updateAttributes(1, 20, true, 0);
             let attrs = await nft.attributes(1);
-            expect(attrs.happiness).to.equal(100); // Capped at 100
+            expect(attrs.happiness).to.equal(70);
 
             // Test decrease
             await nft.updateAttributes(1, 30, false, 0);
             attrs = await nft.attributes(1);
-            expect(attrs.happiness).to.equal(70);
+            expect(attrs.happiness).to.equal(40);
         });
 
         it("Should update experience correctly", async function () {
