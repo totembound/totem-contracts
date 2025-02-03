@@ -402,6 +402,17 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         totemNFT.batchSetMetadataURIs(species, colors, stages, ipfsHashes);
     }
 
+    function setValidColorsForRarities(
+        uint256[] calldata rarities,
+        uint256[] calldata colors
+    ) external onlyOwner {
+        totemNFT.setValidColorsForRarities(rarities, colors);
+    }
+
+    function setStageThresholds(uint256[4] calldata thresholds) external {
+        totemNFT.setStageThresholds(thresholds);
+    }
+
     // Action tracking update
     function _updateActionTracking(
         uint256 tokenId,
