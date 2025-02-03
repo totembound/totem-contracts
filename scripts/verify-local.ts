@@ -9,7 +9,7 @@ async function main() {
     const forwarder = await ethers.getContractAt("TotemTrustedForwarder", deployment.totemTrustedForwarder);
     const game = await ethers.getContractAt("TotemGame", deployment.gameProxy);
     const token = await ethers.getContractAt("TotemToken", deployment.tokenProxy); // Changed from totemToken
-    const nft = await ethers.getContractAt("TotemNFT", deployment.totemNFT);
+    const nft = await ethers.getContractAt("TotemNFT", deployment.totemNFTProxy);
 
     console.log("\nVerifying contract setup...");
     
@@ -92,7 +92,7 @@ async function main() {
     // Verify Achievements authorized contracts
     console.log("\nVerifying Achievements authorized contracts...");
     const authorizedContracts = [
-        { name: "TotemNFT", address: deployment.totemNFT },
+        { name: "TotemNFT", address: deployment.totemNFTProxy },
         { name: "TotemGame", address: deployment.gameProxy },
         { name: "TotemRewards", address: deployment.rewardsProxy }
     ];

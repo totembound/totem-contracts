@@ -13,11 +13,25 @@ async function main() {
 
     const nft = await ethers.getContractAt(
         "TotemNFT",
-        deployment.totemNFT
+        deployment.totemNFTProxy
     ) as unknown as TotemNFT;
 
-    // Define metadata URIs for the Common Owl
+    // setup the colors
+    await game.setValidColorsForRarities(
+        [0, 0, 0, 0, 0,  // Common
+         1, 1, 1, 1, 1,  // Uncommon
+         2, 2, 2, 2,     // Rare
+         3, 3, 3,        // Epic
+         4, 4],          // Legendary
+    
+        [0, 1, 2, 3, 4,  // Common -> Brown, Gray, White, Tawny, Speckled
+         5, 6, 7, 8, 9,  // Uncommon -> Russet, Slate, Copper, Cream, Dappled
+         10, 11, 12, 13, // Rare -> Golden, DarkPurple, LightBlue, Charcoal
+         14, 15, 16,     // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
+         17, 18]         // Legendary -> RadiantGold, EtherealSilver
+    );
 
+    // Define metadata URIs for the Common Owl
     // Assuming "11" represents the Owl species
     const species: number[] = [11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,

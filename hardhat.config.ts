@@ -1,9 +1,11 @@
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-ethers";
 import "hardhat-contract-sizer";
 import "solidity-coverage";
 import "dotenv/config";
+import fs from "fs";
+import path from "path";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -46,6 +48,27 @@ const config: HardhatUserConfig = {
     only: [], // optional: only show specific contracts
   }
 };
+
+const CONTRACTS = ["TotemGame", "TotemNFT", "TotemRewards", "TotemAchievements"];
+const FRONTEND_ABI_PATH = "../totem-app/src/contracts"; // Adjust path as needed
+
+task("export-abi", "Exports contract ABIs to frontend")
+  .setAction(async (_, { artifacts }) => {
+    if (!fs.existsSync(FRONTEND_ABI_PATH)) {
+      fs.mkdirSync(FRONTEND_ABI_PATH, { recursive: true });
+    }
+
+    for (const contractName of CONTRACTS) {
+      try {
+        const artifact = await artifacts.readArtifact(contractName);
+        const filePath = path.join(FRONTEND_ABI_PATH, `${contractName}.abi.json`);
+        fs.writeFileSync(filePath, JSON.stringify(artifact.abi, null, 2));
+        console.log(`✅ ABI exported: ${filePath}`);
+      } catch (error: any) {
+          console.error(`❌ Error exporting ABI for ${contractName}:`, error.message);
+      }
+    }
+});
 
 export default config;
 

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./helpers/RandomnessHelper.sol";
 import "./interfaces/ITotemRandomOracle.sol";
@@ -25,7 +27,12 @@ error URINotSet();
 error InvalidAddress();
 error RandomRequestNotFulfilled();
 
-contract TotemNFT is ERC721Enumerable, Ownable {
+contract TotemNFT is 
+    Initializable, 
+    ERC721EnumerableUpgradeable, 
+    OwnableUpgradeable, 
+    UUPSUpgradeable 
+{
     using RandomnessHelper for uint256;
 
     enum Species {
@@ -89,7 +96,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
     mapping(Rarity => mapping(Color => bool)) public validColorForRarity;
 
     // Experience thresholds for each stage
-    uint256[4] public stageThresholds = [500, 1500, 3500, 7500];
+    uint256[4] public stageThresholds;
     
      // Events
     event AttributesUpdated(uint256 indexed tokenId, uint256 happiness, uint256 experience);
@@ -99,32 +106,19 @@ contract TotemNFT is ERC721Enumerable, Ownable {
     event TotemUnstaked(uint256 indexed tokenId);
     event MetadataURISet(Species species, Color color, uint256 stage, string uri);
 
-    constructor() ERC721("Totem", "TOTEM") Ownable(msg.sender) {
-        // Initialize valid colors for each rarity
-        // Common
-        validColorForRarity[Rarity.Common][Color.Brown] = true;
-        validColorForRarity[Rarity.Common][Color.Gray] = true;
-        validColorForRarity[Rarity.Common][Color.White] = true;
-        validColorForRarity[Rarity.Common][Color.Tawny] = true;
-        validColorForRarity[Rarity.Common][Color.Speckled] = true;
-        // Uncommon
-        validColorForRarity[Rarity.Uncommon][Color.Russet] = true;
-        validColorForRarity[Rarity.Uncommon][Color.Slate] = true;
-        validColorForRarity[Rarity.Uncommon][Color.Copper] = true;
-        validColorForRarity[Rarity.Uncommon][Color.Cream] = true;
-        validColorForRarity[Rarity.Uncommon][Color.Dappled] = true;
-        // Rare
-        validColorForRarity[Rarity.Rare][Color.Golden] = true;
-        validColorForRarity[Rarity.Rare][Color.DarkPurple] = true;
-        validColorForRarity[Rarity.Rare][Color.LightBlue] = true;
-        validColorForRarity[Rarity.Rare][Color.Charcoal] = true;
-        // Epic
-        validColorForRarity[Rarity.Epic][Color.EmeraldGreen] = true;
-        validColorForRarity[Rarity.Epic][Color.CrimsonRed] = true;
-        validColorForRarity[Rarity.Epic][Color.DeepSapphire] = true;
-        // Legendary
-        validColorForRarity[Rarity.Legendary][Color.RadiantGold] = true;
-        validColorForRarity[Rarity.Legendary][Color.EtherealSilver] = true;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize() public initializer {
+        __ERC721_init("Totem", "TOTEM");
+        __ERC721Enumerable_init();
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+
+        // Initialize stages
+        stageThresholds =  [500, 1500, 3500, 7500];
     }
 
     function mint(
@@ -144,15 +138,8 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         uint8 rarity = RandomnessHelper.getRarity(randomWords[0]);
         uint8 color = RandomnessHelper.getColorForRarity(randomWords[1], rarity);
 
-        // For now, all mints are Common rarity
-        //rarity = Rarity.Common;
-
-        // Assign a valid color for this rarity
-        //Color color = getValidColorForRarity(rarity);
         if (Color(color) == Color.None) revert NoValidColorForRarity();
 
-        // For now, all mints are Common rarity
-        // Later this will be determined by oracle
         attributes[tokenId] = TotemAttributes({
             species: species,
             color: Color(color),
@@ -166,27 +153,6 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
         _safeMint(to, tokenId);
         return tokenId;
-    }
-
-    // Helper function to get a valid color for a rarity
-    function getValidColorForRarity(Rarity rarity) internal view returns (Color) {
-        Color[] memory possibleColors = new Color[](5);
-        uint256 count = 0;
-        
-        for(uint i = 0; i < 5; i++) {
-            Color color = Color(i);
-            if(validColorForRarity[rarity][color]) {
-                possibleColors[count] = color;
-                count++;
-            }
-        }
-        
-        if(count == 0) return Color.None;
-        
-        // For now, return the first valid color
-        // Later this could be randomized with VRF
-        //return possibleColors[0];
-        return Color.Gray;
     }
 
     function evolve(uint256 tokenId) external {
@@ -289,6 +255,18 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         }
     }
 
+    function setValidColorsForRarities(uint256[] calldata rarities, uint256[] calldata colors) external onlyOwner {
+        if (rarities.length != colors.length) revert ArrayLengthMismatch();
+
+        for (uint256 i = 0; i < rarities.length; i++) {
+            validColorForRarity[Rarity(rarities[i])][Color(colors[i])] = true;
+        }
+    }
+
+    function setStageThresholds(uint256[4] calldata newThresholds) external onlyOwner {
+        stageThresholds = newThresholds;
+    }
+
     function setDisplayName(uint256 tokenId, string memory newName) external {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
@@ -363,4 +341,22 @@ contract TotemNFT is ERC721Enumerable, Ownable {
     function max(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a : b;
     }
+
+    // Marketplace Compatibility Functions
+    function supportsInterface(bytes4 interfaceId) 
+        public 
+        view 
+        virtual 
+        override(ERC721EnumerableUpgradeable) 
+        returns (bool) 
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // Upgrade authorization
+    function _authorizeUpgrade(address newImplementation) 
+        internal 
+        override 
+        onlyOwner 
+    {}
 }

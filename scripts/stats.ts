@@ -65,7 +65,7 @@ async function main() {
 
     const nft = await ethers.getContractAt(
         "TotemNFT",
-        deployment.totemNFT
+        deployment.totemNFTProxy
     ) as unknown as TotemNFT;
 
     const token = await ethers.getContractAt(
