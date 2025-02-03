@@ -6,7 +6,7 @@ async function main() {
     console.log("Deploying contracts with:", deployer.address);
     console.log("Account balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)));
 
-    // 1. Deploy TotemAdminPriceOracle
+    // Deploy TotemAdminPriceOracle
     console.log("\nDeploying TotemAdminPriceOracle...");
     const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
     const initialPrice = ethers.parseUnits("0.01", "ether"); // Initial price 0.01 POL
@@ -15,7 +15,7 @@ async function main() {
     const oracleAddress = await adminOracle.getAddress();
     console.log("TotemAdminPriceOracle deployed to:", oracleAddress);
 
-    // 2. Deploy Token Implementation
+    // Deploy Token Implementation
     console.log("\nDeploying Token Implementation...");
     const TotemToken = await ethers.getContractFactory("TotemToken");
     const tokenImplementation = await TotemToken.deploy();
@@ -23,15 +23,15 @@ async function main() {
     const tokenImplementationAddress = await tokenImplementation.getAddress();
     console.log("Token Implementation deployed to:", tokenImplementationAddress);
 
-    // 3. Deploy TotemNFT
+    // Deploy TotemNFT
     console.log("\nDeploying TotemNFT...");
     const TotemNFT = await ethers.getContractFactory("TotemNFT");
-    const totemNFT = await TotemNFT.deploy();
-    await totemNFT.waitForDeployment();
-    const nftAddress = await totemNFT.getAddress();
-    console.log("TotemNFT deployed to:", nftAddress);
+    const nftImplementation = await TotemNFT.deploy();
+    await nftImplementation.waitForDeployment();
+    const nftImplementationAddress = await nftImplementation.getAddress();
+    console.log("TotemNFT deployed to:", nftImplementationAddress);
 
-    // 3a. Deploy MockRandomOracle for local development
+    // Deploy MockRandomOracle for local development
     console.log("\nDeploying MockRandomOracle...");
     const MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
     const mockRandomOracle = await MockRandomOracle.deploy();
@@ -39,13 +39,7 @@ async function main() {
     const mockRandomOracleAddress = await mockRandomOracle.getAddress();
     console.log("MockRandomOracle deployed to:", mockRandomOracleAddress);
 
-    // 3b. Set random oracle in NFT contract
-    console.log("\nSetting random oracle in NFT contract...");
-    const setRandomOracleTx = await totemNFT.setRandomOracle(mockRandomOracleAddress);
-    await setRandomOracleTx.wait();
-    console.log("Random oracle set in NFT contract");
-
-    // 4. Deploy TotemTrustedForwarder
+    // Deploy TotemTrustedForwarder
     console.log("\nDeploying TotemTrustedForwarder...");
     const TotemTrustedForwarder = await ethers.getContractFactory("TotemTrustedForwarder");
     const maxGasPrice = ethers.parseUnits("100", "gwei");
@@ -54,7 +48,7 @@ async function main() {
     const forwarderAddress = await forwarder.getAddress();
     console.log("TotemTrustedForwarder deployed to:", forwarderAddress);
 
-    // 5. Deploy ProxyAdmin, used for TotemToken, TotemGame and TotemRewards
+    // Deploy ProxyAdmin, used for TotemToken, TotemGame and TotemRewards
     console.log("\nDeploying ProxyAdmin...");
     const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
     const proxyAdmin = await TotemProxyAdmin.deploy(deployer.address);
@@ -66,7 +60,7 @@ async function main() {
         oracleAddress
     ]);
 
-    // 6. Deploy Proxy for TotemToken
+    // Deploy Proxy for TotemToken
     console.log("\nDeploying Token Proxy...");
     const TotemProxy = await ethers.getContractFactory("TotemProxy");
     const tokenProxy = await TotemProxy.deploy(
@@ -78,7 +72,21 @@ async function main() {
     const tokenProxyAddress = await tokenProxy.getAddress();
     console.log("Token Proxy deployed to:", tokenProxyAddress);
 
-    // 7. Deploy Game Implementation
+    const initNFTData = TotemNFT.interface.encodeFunctionData("initialize", [
+    ]);
+
+    // Deploy Proxy for TotemNFT
+    console.log("\nDeploying NFT Proxy...");
+    const nftProxy = await TotemProxy.deploy(
+        nftImplementationAddress,
+        proxyAdminAddress,
+        initNFTData
+    );
+    await nftProxy.waitForDeployment();
+    const nftProxyAddress = await nftProxy.getAddress();
+    console.log("NFT Proxy deployed to:", nftProxyAddress);
+
+    // Deploy Game Implementation
     console.log("\nDeploying Game Implementation...");
     const TotemGame = await ethers.getContractFactory("TotemGame");
     const gameImplementation = await TotemGame.deploy();
@@ -97,13 +105,13 @@ async function main() {
     };    
     const initGameData = TotemGame.interface.encodeFunctionData("initialize", [
         tokenProxyAddress,
-        nftAddress,
+        nftProxyAddress,
         forwarderAddress,
         initialGameParams,
         initialTimeWindows
     ]);
 
-    // 8. Deploy Proxy for TotemGame
+    // Deploy Proxy for TotemGame
     console.log("\nDeploying Game Proxy...");
     const gameProxy = await TotemProxy.deploy(
         gameImplementationAddress,
@@ -114,7 +122,7 @@ async function main() {
     const gameProxyAddress = await gameProxy.getAddress();
     console.log("Game Proxy deployed to:", gameProxyAddress);
 
-    // 9. Deploy Rewards Implementation
+    // Deploy Rewards Implementation
     console.log("\nDeploying Rewards Implementation...");
     const TotemRewards = await ethers.getContractFactory("TotemRewards");
     const rewardsImplementation = await TotemRewards.deploy();
@@ -127,7 +135,7 @@ async function main() {
         forwarderAddress
     ]);
 
-    // 10. Deploy Proxy for TotemRewards
+    // Deploy Proxy for TotemRewards
     console.log("\nDeploying Rewards Proxy...");
     const rewardsProxy = await TotemProxy.deploy(
         rewardsImplementationAddress,
@@ -138,7 +146,7 @@ async function main() {
     const rewardsProxyAddress = await rewardsProxy.getAddress();
     console.log("Rewards Proxy deployed to:", rewardsProxyAddress);
 
-    // 11. Deploy Achievements Implementation
+    // Deploy Achievements Implementation
     console.log("\nDeploying Achievements Implementation...");
     const TotemAchievements = await ethers.getContractFactory("TotemAchievements");
     const achievementsImplementation = await TotemAchievements.deploy();
@@ -149,7 +157,7 @@ async function main() {
     const initAchievementsData = TotemAchievements.interface.encodeFunctionData("initialize", [
     ]);
 
-    // 12. Deploy Proxy for TotemAchievements
+    // Deploy Proxy for TotemAchievements
     console.log("\nDeploying Achievements Proxy...");
     const achievementsProxy = await TotemProxy.deploy(
         achievementsImplementationAddress,
@@ -165,8 +173,9 @@ async function main() {
     const achievements = await ethers.getContractAt("TotemAchievements", achievementsProxyAddress);
     // Authorize TotemNFT
     console.log("Authorizing TotemNFT...");
-    const authNftTx = await achievements.authorize(nftAddress);
+    const authNftTx = await achievements.authorize(nftProxyAddress);
     await authNftTx.wait();
+    const totemNFT = await ethers.getContractAt("TotemNFT", nftProxyAddress);
     await totemNFT.setAchievements(achievementsProxyAddress);
     console.log("TotemNFT authorized");
 
@@ -186,7 +195,13 @@ async function main() {
     await totemRewards.setAchievements(achievementsProxyAddress);
     console.log("TotemRewards authorized");
 
-    // 13. Setup Token Contract: fund and transfer tokens
+    // Setup random oracle in NFT contract
+    console.log("\nSetting random oracle in NFT contract...");
+    const setRandomOracleTx = await totemNFT.setRandomOracle(mockRandomOracleAddress);
+    await setRandomOracleTx.wait();
+    console.log("Random oracle set in NFT contract");
+
+    // Setup Token Contract: fund and transfer tokens
     console.log("\nSetting up Token Contract...");
     enum AllocationCategory {
         Game,
@@ -197,7 +212,7 @@ async function main() {
         Team
     }
 
-    // 14. Fund Game Contract, transfer TOTEM
+    // Fund Game Contract, transfer TOTEM
     const totemToken = await ethers.getContractAt("TotemToken", tokenProxyAddress);
     const gameAllocation = ethers.parseUnits("250000000", 18);
     const gameAllocationTx = await totemToken.transferAllocation(
@@ -208,7 +223,7 @@ async function main() {
     await gameAllocationTx.wait();
     console.log("Game allocated with TOTEM tokens");
 
-    // 15. Fund Rewards Contract, transfer TOTEM
+    // Fund Rewards Contract, transfer TOTEM
     const rewardsAllocation = ethers.parseUnits("150000000", 18);
     const rewardsAllocationTx = await totemToken.transferAllocation(
         AllocationCategory.Rewards,
@@ -218,13 +233,13 @@ async function main() {
     await rewardsAllocationTx.wait();
     console.log("Rewards allocated with TOTEM tokens");
 
-    // 16. Transfer NFT ownership to Game Contract
+    // Transfer NFT ownership to Game Contract
     console.log("\nTransferring NFT ownership...");
     const transferOwnershipTx = await totemNFT.transferOwnership(gameProxyAddress);
     await transferOwnershipTx.wait();
     console.log("NFT ownership transferred to proxy");
     
-    // 17. Set up Forwarder, transfer POL
+    // Set up Forwarder, transfer POL
     console.log("\nSetting proxy address in forwarder...");
     const setForwarderTx = await forwarder.setTargetContract(gameProxyAddress);
     await setForwarderTx.wait();
@@ -243,7 +258,8 @@ async function main() {
         priceOracle: oracleAddress,
         tokenImplementation: tokenImplementationAddress,
         tokenProxy: tokenProxyAddress,
-        totemNFT: nftAddress,
+        totemNFT: nftImplementationAddress,
+        totemNFTProxy: nftProxyAddress,
         totemTrustedForwarder: forwarderAddress,
         proxyAdmin: proxyAdminAddress,
         gameImplementation: gameImplementationAddress,

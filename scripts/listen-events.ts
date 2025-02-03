@@ -13,8 +13,8 @@ async function listenToContractEvents() {
         },
         {
             name: "TotemNFT",
-            address: deployment.totemNFT,
-            contract: await ethers.getContractAt("TotemNFT", deployment.totemNFT)
+            address: deployment.totemNFTProxy,
+            contract: await ethers.getContractAt("TotemNFT", deployment.totemNFTProxy)
         },
         {
             name: "TotemAchievements",
