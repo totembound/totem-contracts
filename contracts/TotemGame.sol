@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./interfaces/ITotemAchievements.sol";
 import "./TotemToken.sol";
 import "./TotemNFT.sol";
 
@@ -74,6 +75,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // State variables
     TotemToken public totemToken;
     TotemNFT public totemNFT;
+    ITotemAchievements public achievements;
     address public trustedForwarder;
     GameParameters public gameParams;
     TimeWindows public timeWindows;
@@ -230,13 +232,14 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // Action execution
     function executeAction(uint256 tokenId, ActionType actionType) public {
-        if (totemNFT.ownerOf(tokenId) != _msgSender()) revert NotTokenOwner();
+        address user = _msgSender();
+        if (totemNFT.ownerOf(tokenId) != user) revert NotTokenOwner();
         if (!_canUseAction(tokenId, actionType)) revert ActionNotAvailable();
 
         ActionConfig memory config = actionConfigs[actionType];
         
         // Take payment
-        if (!totemToken.transferFrom(_msgSender(), address(this), config.cost))
+        if (!totemToken.transferFrom(user, address(this), config.cost))
             revert PaymentFailed();
 
         // Update tracking
@@ -249,6 +252,16 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             config.increasesHappiness,
             config.experienceGain
         );
+
+        // update achievements progression
+        if (address(achievements) != address(0)) {
+            if (actionType == ActionType.Feed) {
+                bytes32 achievementId = keccak256("caring_keeper");
+                ITotemAchievements.AchievementProgress memory progress = achievements.getProgress(achievementId, user);
+                uint256 totalFeeds = progress.count + 1;
+                achievements.updateProgress(achievementId, user, totalFeeds);
+            }
+        }
 
         emit ActionPerformed(tokenId, actionType);
     }
@@ -363,6 +376,11 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function getActionTracking(uint256 tokenId, ActionType actionType) 
         external view returns (ActionTracking memory) {
         return actionTracking[tokenId][actionType];
+    }
+
+    function setAchievements(address _achievements) external onlyOwner {
+        if (_achievements == address(0)) revert InvalidAddress();
+        achievements = ITotemAchievements(_achievements);
     }
 
     // Admin functions for dynamic updates
