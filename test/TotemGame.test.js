@@ -247,14 +247,14 @@ describe("TotemGame", function () {
             
             // Initial attributes show happiness of 100
             const initialAttrs = await nft.attributes(tokenId);
-            expect(initialAttrs[3]).to.equal(100n); // Initial happiness is 100
+            expect(initialAttrs[3]).to.equal(50n); // Initial happiness is 50
             
             // First we can train since happiness > 20
             await game.connect(addr1).train(tokenId);
             
             // Train multiple times to reduce happiness
             // Training costs 10 happiness each time
-            for(let i = 0; i < 8; i++) { // Train 8 times to reduce happiness below 20
+            for(let i = 0; i < 3; i++) { // Train 3 more times to reduce happiness below 20
                 await game.connect(addr1).train(tokenId);
             }
             

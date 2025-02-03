@@ -138,7 +138,55 @@ async function main() {
     const rewardsProxyAddress = await rewardsProxy.getAddress();
     console.log("Rewards Proxy deployed to:", rewardsProxyAddress);
 
-    // 11. Setup Token Contract: fund and transfer tokens
+    // 11. Deploy Achievements Implementation
+    console.log("\nDeploying Achievements Implementation...");
+    const TotemAchievements = await ethers.getContractFactory("TotemAchievements");
+    const achievementsImplementation = await TotemAchievements.deploy();
+    await achievementsImplementation.waitForDeployment();
+    const achievementsImplementationAddress = await achievementsImplementation.getAddress();
+    console.log("Achievements Implementation deployed to:", achievementsImplementationAddress);
+    // Prepare Achievements initialization data
+    const initAchievementsData = TotemAchievements.interface.encodeFunctionData("initialize", [
+    ]);
+
+    // 12. Deploy Proxy for TotemAchievements
+    console.log("\nDeploying Achievements Proxy...");
+    const achievementsProxy = await TotemProxy.deploy(
+        achievementsImplementationAddress,
+        proxyAdminAddress,
+        initAchievementsData
+    );
+    await achievementsProxy.waitForDeployment();
+    const achievementsProxyAddress = await achievementsProxy.getAddress();
+    console.log("Achievements Proxy deployed to:", achievementsProxyAddress);
+
+    // Setup Achievements authorized contracts; TotemNFT, TotemGame, TotemRewards
+    console.log("\nAuthorizing contracts to interact with achievements...");
+    const achievements = await ethers.getContractAt("TotemAchievements", achievementsProxyAddress);
+    // Authorize TotemNFT
+    console.log("Authorizing TotemNFT...");
+    const authNftTx = await achievements.authorize(nftAddress);
+    await authNftTx.wait();
+    await totemNFT.setAchievements(achievementsProxyAddress);
+    console.log("TotemNFT authorized");
+
+    // Authorize TotemGame
+    console.log("Authorizing TotemGame...");
+    const authGameTx = await achievements.authorize(gameProxyAddress);
+    await authGameTx.wait();
+    const totemGame = await ethers.getContractAt("TotemGame", gameProxyAddress);
+    await totemGame.setAchievements(achievementsProxyAddress);
+    console.log("TotemGame authorized");
+
+    // Authorize TotemRewards
+    console.log("Authorizing TotemRewards...");
+    const authRewardsTx = await achievements.authorize(rewardsProxyAddress);
+    await authRewardsTx.wait();
+    const totemRewards = await ethers.getContractAt("TotemGame", gameProxyAddress);
+    await totemRewards.setAchievements(achievementsProxyAddress);
+    console.log("TotemRewards authorized");
+
+    // 13. Setup Token Contract: fund and transfer tokens
     console.log("\nSetting up Token Contract...");
     enum AllocationCategory {
         Game,
@@ -149,7 +197,7 @@ async function main() {
         Team
     }
 
-    // 12. Fund Game Contract, transfer TOTEM
+    // 14. Fund Game Contract, transfer TOTEM
     const totemToken = await ethers.getContractAt("TotemToken", tokenProxyAddress);
     const gameAllocation = ethers.parseUnits("250000000", 18);
     const gameAllocationTx = await totemToken.transferAllocation(
@@ -160,7 +208,7 @@ async function main() {
     await gameAllocationTx.wait();
     console.log("Game allocated with TOTEM tokens");
 
-    // 13. Fund Rewards Contract, transfer TOTEM
+    // 15. Fund Rewards Contract, transfer TOTEM
     const rewardsAllocation = ethers.parseUnits("150000000", 18);
     const rewardsAllocationTx = await totemToken.transferAllocation(
         AllocationCategory.Rewards,
@@ -170,13 +218,13 @@ async function main() {
     await rewardsAllocationTx.wait();
     console.log("Rewards allocated with TOTEM tokens");
 
-    // 14. Transfer NFT ownership to Game Contract
+    // 16. Transfer NFT ownership to Game Contract
     console.log("\nTransferring NFT ownership...");
     const transferOwnershipTx = await totemNFT.transferOwnership(gameProxyAddress);
     await transferOwnershipTx.wait();
     console.log("NFT ownership transferred to proxy");
     
-    // 15. Set up Forwarder, transfer POL
+    // 17. Set up Forwarder, transfer POL
     console.log("\nSetting proxy address in forwarder...");
     const setForwarderTx = await forwarder.setTargetContract(gameProxyAddress);
     await setForwarderTx.wait();
@@ -202,6 +250,8 @@ async function main() {
         gameProxy: gameProxyAddress,
         rewardsImplementation: rewardsImplementationAddress,
         rewardsProxy: rewardsProxyAddress,
+        achievementsImplementation: achievementsImplementationAddress,
+        achievementsProxy: achievementsProxyAddress,
         deployer: deployer.address
     };
     saveDeployment("localhost", deploymentInfo);

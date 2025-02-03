@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "./helpers/RandomnessHelper.sol";
 import "./interfaces/ITotemRandomOracle.sol";
+import "./interfaces/ITotemAchievements.sol";
 
 error InvalidSpecies();
 error NoValidColorForRarity();
@@ -77,6 +79,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
 
     // Mapping from token ID to attributes
     mapping(uint256 => TotemAttributes) public attributes;
+    ITotemAchievements public achievements;
     ITotemRandomOracle public randomOracle;
 
     // Mapping for complete IPFS hashes: species => color => stage => hash
@@ -154,7 +157,7 @@ contract TotemNFT is ERC721Enumerable, Ownable {
             species: species,
             color: Color(color),
             rarity: Rarity(rarity),
-            happiness: 100,
+            happiness: 50,
             experience: 0,
             stage: 0,
             isStaked: false,
@@ -204,7 +207,15 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         if (bytes(_metadataURIs[totem.species][totem.color][totem.stage]).length == 0) {
            revert EvolutionMetadataNotSet();
         }
-        
+
+        // Achievement unlock for evolution stage
+        if (address(achievements) != address(0)) {
+            bytes32 achievementId = keccak256(abi.encodePacked("stage_", Strings.toString(totem.stage)));
+            if (!achievements.hasAchievement(achievementId, msg.sender)) {
+                achievements.unlockAchievement(achievementId, msg.sender, totem.stage);
+            }
+        }
+
         emit TotemEvolved(tokenId, totem.stage, totem.species, totem.rarity);
     }
 
@@ -247,6 +258,11 @@ contract TotemNFT is ERC721Enumerable, Ownable {
         if (color == Color.None) revert InvalidColor();
         _metadataURIs[species][color][stage] = ipfsHash;
         emit MetadataURISet(species, color, stage, ipfsHash);
+    }
+
+    function setAchievements(address _achievements) external onlyOwner {
+        if (_achievements == address(0)) revert InvalidAddress();
+        achievements = ITotemAchievements(_achievements);
     }
 
     function setRandomOracle(address _oracle) external onlyOwner {

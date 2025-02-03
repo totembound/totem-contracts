@@ -77,6 +77,38 @@ async function main() {
     }
 
     console.log("\nSetup verification complete!");
+
+    // 5. Achievements Contract Verification
+    const achievements = await ethers.getContractAt("TotemAchievements", deployment.achievementsProxy);
+
+    // Verify Achievements owner
+    const achievementsOwner = await achievements.owner();
+    console.log("\nAchievements owner:", achievementsOwner);
+    console.log("Expected achievements owner:", deployer.address);
+    if (achievementsOwner.toLowerCase() !== deployer.address.toLowerCase()) {
+        throw new Error("Achievements contract owner mismatch!");
+    }
+
+    // Verify Achievements authorized contracts
+    console.log("\nVerifying Achievements authorized contracts...");
+    const authorizedContracts = [
+        { name: "TotemNFT", address: deployment.totemNFT },
+        { name: "TotemGame", address: deployment.gameProxy },
+        { name: "TotemRewards", address: deployment.rewardsProxy }
+    ];
+
+    for (const contract of authorizedContracts) {
+        const isAuthorized = await achievements.authorizedContracts(contract.address);
+        console.log(`${contract.name} (${contract.address}) authorized:`, isAuthorized);
+        
+        if (!isAuthorized) {
+            console.log(`Authorizing ${contract.name}...`);
+            const authTx = await achievements.authorize(contract.address);
+            await authTx.wait();
+            console.log(`${contract.name} authorized`);
+        }
+    }
+
 }
 
 main()
