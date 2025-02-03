@@ -206,10 +206,11 @@ async function main() {
     enum AllocationCategory {
         Game,
         Rewards,
-        Reserved,
-        Marketing,
+        Ecosystem,
         Liquidity,
-        Team
+        Marketing,
+        Team,
+        Reserved
     }
 
     // Fund Game Contract, transfer TOTEM
