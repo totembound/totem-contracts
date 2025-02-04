@@ -32,30 +32,27 @@ export async function mintAndAnalyzeDistribution(
 
     // Color enum mapping
     const colorMap: { [key: number]: string } = {
-        // Common Colors (0-4)
+        // Common Colors (0-3)
         0: "Brown",
         1: "Gray",
         2: "White",
         3: "Tawny",
-        4: "Speckled",
-        // Uncommon Colors (5-9)
-        5: "Russet",
-        6: "Slate",
-        7: "Copper",
-        8: "Cream",
-        9: "Dappled",
-        // Rare Colors (10-13)
-        10: "Golden",
-        11: "DarkPurple",
-        12: "LightBlue",
-        13: "Charcoal",
-        // Epic Colors (14-16)
-        14: "EmeraldGreen",
-        15: "CrimsonRed",
-        16: "DeepSapphire",
-        // Legendary Colors (17-18)
-        17: "RadiantGold",
-        18: "EtherealSilver"
+        // Uncommon Colors (4-7)
+        4: "Slate",
+        5: "Copper",
+        6: "Cream",
+        7: "Dappled",
+        // Rare Colors (8-10)
+        8: "Golden",
+        9: "DarkPurple",
+        10: "Charcoal",
+        // Epic Colors (11-13)
+        11: "EmeraldGreen",
+        12: "CrimsonRed",
+        13: "DeepSapphire",
+        // Legendary Colors (14-15)
+        14: "RadiantGold",
+        15: "EtherealSilver"
     };
 
     // Initialize counters
