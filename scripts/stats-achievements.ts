@@ -1,109 +1,108 @@
 import { ethers } from "hardhat";
 import { loadDeployment } from "./helpers";
-import { TotemGame, TotemNFT, TotemToken } from "../typechain-types";
 import { TotemAchievements } from "../typechain-types";
 
 async function main() {
     const deployment = loadDeployment("localhost");
-    // Add this to the contract instances section
     const achievements = await ethers.getContractAt(
         "TotemAchievements",
         deployment.achievementsProxy
     ) as unknown as TotemAchievements;
 
-    // Add this section before the closing of main()
     console.log("\n=== Achievements Statistics ===");
 
     // Get all achievement IDs
     const achievementIds = await achievements.getAchievementIds();
     console.log(`Total Configured Achievements: ${achievementIds.length}`);
 
-    // Track achievement type distribution
-    const achievementTypeCount = {
-        Evolution: 0,
-        Collection: 0,
-        Streak: 0,
-        Action: 0
-    };
-    
-    // Achievement type names to match the enum in the test
-    const achievementTypeNames = [
-        'Evolution', 
-        'Collection', 
-        'Streak', 
+    // Achievement category names
+    const categoryNames = [
+        'Evolution',
+        'Collection',
+        'Streak',
         'Action'
     ];
 
-    // Detailed achievement information
-    console.log("\nAchievement Details:");
-    for (const id of achievementIds) {
-        const achievement = await achievements.getAchievement(id);
-        const typeName = achievementTypeNames[Number(achievement.achievementType)];
-        achievementTypeCount[typeName as keyof typeof achievementTypeCount]++;
-
-        console.log(`\nName: ${achievement.name}`);
-        console.log(`Description: ${achievement.description}`);
-        console.log(`Type: ${typeName}`);
-        console.log(`Requirement: ${achievement.requirement}`);
-        console.log(`Enabled: ${achievement.enabled}`);
-    }
-
-    // Print achievement type distribution
-    console.log("\nAchievement Type Distribution:");
-    Object.entries(achievementTypeCount).forEach(([type, count]) => {
-        console.log(`${type}: ${count}`);
+    // Track category distribution using the new getUserCategoriesProgress function
+    const addr1 = { address: "0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199" };
+    const categoryProgress = await achievements.getUserCategoriesProgress(addr1.address);
+    
+    console.log("\nAchievement Category Distribution:");
+    categoryProgress.forEach((category, index) => {
+        console.log(`${categoryNames[index]}:`);
+        console.log(`  Total Achievements: ${category.totalAchievements}`);
+        console.log(`  Completed Achievements: ${category.completedAchievements}`);
+        console.log(`  Total Milestones: ${category.totalMilestones}`);
+        console.log(`  Unlocked Milestones: ${category.unlockedMilestones}`);
     });
 
-    // Track user achievement stats (using addr1 as an example)
-    //const [, addr1] = await ethers.getSigners();
-    const addr1 = { address: "0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199" };
+    // Get user's completed achievements
+    const completedAchievements = await achievements.getUserCompletedAchievements(addr1.address);
+    
     console.log("\nUser Achievement Statistics:");
     console.log(`Address: ${addr1.address}`);
-
-    // Get highest stage unlocked
-    const highestStage = await achievements.getHighestStageUnlocked(addr1.address);
-    console.log(`Highest Stage Unlocked: ${highestStage}`);
-
-    // Track unlocked achievements
-    let unlockedAchievementsCount = 0;
-    const unlockedAchievements = [];
-
-    for (const id of achievementIds) {
-        const hasAchievement = await achievements.hasAchievement(id, addr1.address);
-        if (hasAchievement) {
-            unlockedAchievementsCount++;
-            const achievement = await achievements.getAchievement(id);
-            unlockedAchievements.push(achievement.name);
+    console.log(`Total Completed Achievements: ${completedAchievements.length}`);
+    
+    if (completedAchievements.length > 0) {
+        console.log("\nCompleted Achievement Details:");
+        for (const achievement of completedAchievements) {
+            console.log(`\nName: ${achievement.name}`);
+            console.log(`Description: ${achievement.description}`);
+            console.log(`Type: ${Number(achievement.achievementType) === 0 ? 'OneTime' : 'Progression'}`);
+            if (achievement.milestones.length > 0) {
+                console.log("Milestones:");
+                achievement.milestones.forEach((milestone, index) => {
+                    console.log(`  ${index + 1}. ${milestone.name} (Requirement: ${milestone.requirement})`);
+                });
+            }
         }
     }
 
-    console.log(`Unlocked Achievements: ${unlockedAchievementsCount}`);
-    console.log("Unlocked Achievement Names:", unlockedAchievements);
-
-    // Optional: Track progress on some key achievements
-    console.log("\nAchievement Progresses:");
-    const keyAchievementIds = [
-        ethers.id("stage_1"),
-        ethers.id("stage_4"),
-        ethers.id("first_totem"),
-        ethers.id("caring_keeper")
+    // Check specific achievements progress
+    console.log("\nDetailed Achievement Progress:");
+    const keyAchievements = [
+        { id: ethers.id("login_progression"), category: 2 },     // Streak
+        { id: ethers.id("evolution_progression"), category: 0 }, // Evolution
+        { id: ethers.id("collector_progression"), category: 1 }, // Collection
+        { id: ethers.id("train_progression"), category: 3 }      // Action
     ];
 
-    for (const id of keyAchievementIds) {
+    const categoryViews = new Map<number, Awaited<ReturnType<typeof achievements.getAchievementsByCategory>>>();
+
+    for (const { id, category } of keyAchievements) {
         try {
-            const progress = await achievements.getProgress(id, addr1.address);
-            const achievement = await achievements.getAchievement(id);
+            const progress = await achievements.getDetailedProgress(id, addr1.address);
             
-            console.log(`\nAchievement: ${achievement.name}`);
-            console.log(`Current Progress: ${progress.count}`);
-            console.log(`Requirement: ${achievement.requirement}`);
-            console.log(`Achieved: ${progress.achieved}`);
-            console.log(`Last Update: ${new Date(Number(progress.lastUpdate) * 1000).toLocaleString()}`);
+            if (!categoryViews.has(category)) {
+                categoryViews.set(
+                    category, 
+                    await achievements.getAchievementsByCategory(category, addr1.address)
+                );
+            }
+            
+            const achievementView = categoryViews.get(category)?.find(a => a.id === id);
+
+            if (achievementView) {
+                console.log(`\nAchievement: ${achievementView.name}`);
+                console.log(`Category: ${categoryNames[category]}`);
+                console.log(`Current Progress: ${progress.count}`);
+                console.log(`Achieved: ${progress.achieved}`);
+                console.log(`Start Time: ${new Date(Number(progress.startTime) * 1000).toLocaleString()}`);
+                console.log(`Last Update: ${new Date(Number(progress.lastUpdate) * 1000).toLocaleString()}`);
+                
+                if (progress.unlockedMilestones.length > 0) {
+                    console.log("Unlocked Milestones:");
+                    progress.unlockedMilestones.forEach((unlocked, index) => {
+                        if (unlocked) {
+                            console.log(`  - ${achievementView.milestones[index].name}`);
+                        }
+                    });
+                }
+            }
         } catch (error) {
-            console.log(`Could not fetch progress for achievement: ${id}`);
+            console.log(`Could not fetch progress for achievement ID: ${id}`);
         }
     }
-
 }
 
 main()
