@@ -24,15 +24,12 @@ enum Color {
     Gray,
     White,
     Tawny,
-    Speckled,
-    Russet,
     Slate,
     Copper,
     Cream,
     Dappled,
     Golden,
     DarkPurple,
-    LightBlue,
     Charcoal,
     EmeraldGreen,
     CrimsonRed,
@@ -166,7 +163,7 @@ async function main() {
 
     console.log("\nColor Distribution:");
     colorCount.forEach((count, index) => {
-        if (index < 19) {  // Don't show None
+        if (index < 16) {  // Don't show None
             const percentage = totalSupply > 0 
                 ? ((BigInt(count) * BigInt(100) * BigInt(100) / totalSupply) * BigInt(1)) / BigInt(100)
                 : BigInt(0);

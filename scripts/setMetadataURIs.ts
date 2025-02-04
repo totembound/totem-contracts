@@ -18,71 +18,69 @@ async function main() {
 
     // setup the colors
     await game.setValidColorsForRarities(
-        [0, 0, 0, 0, 0,  // Common
-         1, 1, 1, 1, 1,  // Uncommon
-         2, 2, 2, 2,     // Rare
-         3, 3, 3,        // Epic
-         4, 4],          // Legendary
+        [0, 0, 0, 0,   // Common
+         1, 1, 1, 1,   // Uncommon
+         2, 2, 2,      // Rare
+         3, 3, 3,      // Epic
+         4, 4],        // Legendary
     
-        [0, 1, 2, 3, 4,  // Common -> Brown, Gray, White, Tawny, Speckled
-         5, 6, 7, 8, 9,  // Uncommon -> Russet, Slate, Copper, Cream, Dappled
-         10, 11, 12, 13, // Rare -> Golden, DarkPurple, LightBlue, Charcoal
-         14, 15, 16,     // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
-         17, 18]         // Legendary -> RadiantGold, EtherealSilver
+        [0, 1, 2, 3,   // Common -> Brown, Gray, White, Tawny
+         4, 5, 6, 7,   // Uncommon -> Slate, Copper, Cream, Dappled
+         8, 9, 10,     // Rare -> Golden, DarkPurple, Charcoal
+         11, 12, 13,   // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
+         14, 15]       // Legendary -> RadiantGold, EtherealSilver
     );
 
     // Define metadata URIs for the Common Owl
-    // Assuming "11" represents the Owl species
-    const species: number[] = [11, 11, 11, 11, 11,
+    // Species: "11" represents the Owl
+    const species: number[] = [
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11
     ];
-    // Assuming "1" represents the Gray color
-    const colors:  number[] = [0, 0, 0, 0, 0,
+    // Color: Brown, Gray, White, Tawny
+    const colors:  number[] = [
+        0, 0, 0, 0, 0,
         1, 1, 1, 1, 1,
         2, 2, 2, 2, 2,
-        3, 3, 3, 3, 3,
-        4, 4, 4, 4, 4
+        3, 3, 3, 3, 3
     ];
     // Stages 0 to 4
-    const stages:  number[] = [0, 1, 2, 3, 4,
+    const stages:  number[] = [
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4
     ];
     const ipfsHashes: string[] = [
-        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
-        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
-        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
-        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
-        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
-// TODO: these are dupes for now for testing
-        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
-        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
-        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
-        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
-        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+        // Owl - Brown
+        "bafkreidbvyniutzdrxcs633f2lg7bvhchxzaeznjcvzlntmjylphyrzwku",
+        "bafkreie46bamxkcnayr346bmnkmwt7oenremqeekyeqjrbmg5krglp4qqm",
+        "bafkreicfw5ukosgsgtl7c7z7764ohahuo4r4uyrvtg5zxaiqfp7slvgk6m",
+        "bafkreigbfq3bafyfnzg37jfjfxi2qsex7dfsiajvkwx7554eygjk7f2mje",
+        "bafkreih7goltd46ityvqc33du2htn5le6kdru5e7xlmi2ua5h6bwxgb4gu",
 
-        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
-        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
-        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
-        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
-        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+        // Owl - Gray
+        "bafkreigdgbmtlge6cykmrztm7enff6t3lx67hfd2vquytczy3taxw35fg4",
+        "bafkreiaxliadoyowahjytpbb7habphermbcs7nzincydxja3zfmadh3dpm",
+        "bafkreibmbv53r67cdgqkhf7byxpi7mwd7w33c7oug35flxtoy4rbaqkg64",
+        "bafkreigudp67jqzryogpbdexogbqspcj6pqlaczrt7vi4ng45c2wkp47bi",
+        "bafkreien3enrlbwbk4essz6rlfclaf4n53bx4u5pxr2toqurdaayxrr5ja",
 
-        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
-        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
-        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
-        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
-        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+        // Owl - White
+        "bafkreigwxa3ssl75b7iptr5fv3h5g66iu2jbjhhztrrzoiunoucbr65pwe",
+        "bafkreicvfhlikmos5muo2eijgpoet7c77um7wl43umdnwu2p6fp6grc5h4",
+        "bafkreidfvrr4jxogbtqa5mewqlfqddqpslqrxj7gnramq2hgqs26y4uldm",
+        "bafkreieixnjlmoqhf7q2sgwpmibxfrchfs3slhrocbx5ec7mfkdx5543fi",
+        "bafkreibfdbc4k7d7miruij3vihvvbhvyp252tybtw3suovfd5rptfqf2hy",
 
-        "bafkreigrnsrs6ws2bfwidt2mptwdprys6vd2rosgfwmt4soh73aennxuhy",
-        "bafkreih7zork3eplxmcuugxgflcqrao2mo4x5m2hadyxobo35kgwzvo52u",
-        "bafkreiaqgvynhteanlwb2pfec6xpm34kphdsle32pyzsilnzqvtmvtfray",
-        "bafkreiggplwi3phuzstkmxlxxv2lckmw46zpi2tzextfqypxdnq4minl54",
-        "bafkreica62x65foafho3u5wpic6uwsopvw35iaydjjwkb2o2ray32yfgnu",
+        // Owl - Tawny
+        "bafkreicju5dpggeinc23wby4qp2dop2u624z3gx6sig75h2b4q2by6sb2y",
+        "bafkreidzqd2unpb7kuvouc4qwa6hezxuw2yxszuak2b4ax3ujyhh26f6ua",
+        "bafkreifqwavhs372oyfdlkcpyrx72hvfzablobbnwqtc4tj7gn4d3b6df4",
+        "bafkreibmke5docnoyqgbufvqsoxmsh7t2ie2vwk6htxctzdxqjnehzbxqy",
+        "bafkreihs6efjzafejwldigzj2c7dxl5mhmf2kgwsxjqctfafdbnnwkt27m",
     ];
 
     // Ensure array lengths match

@@ -52,20 +52,20 @@ contract TotemNFT is
     }
 
     enum Rarity {
-        Common,     // 75%  - 5 colors
-        Uncommon,   // 15%  - 5 colors
-        Rare,       // 7%   - 4 colors
+        Common,     // 75%  - 4 colors
+        Uncommon,   // 15%  - 4 colors
+        Rare,       // 7%   - 3 colors
         Epic,       // 2.5% - 3 colors
         Legendary   // 0.5% - 2 colors
     }
 
     enum Color {
         // Common Colors
-        Brown, Gray, White, Tawny, Speckled,
+        Brown, Gray, White, Tawny,
         // Uncommon Colors
-        Russet, Slate, Copper, Cream, Dappled,
+        Slate, Copper, Cream, Dappled,
         // Rare Colors
-        Golden, DarkPurple, LightBlue, Charcoal,
+        Golden, DarkPurple, Charcoal,
         // Epic Colors
         EmeraldGreen, CrimsonRed, DeepSapphire,
         // Legendary Colors
@@ -153,7 +153,7 @@ contract TotemNFT is
         attributes[tokenId] = TotemAttributes({
             species: species,
             color: Color(color),
-            rarity: Rarity(rarity),
+            rarity: Rarity(rarity), // Rarity.Common,
             happiness: 50,
             experience: 0,
             stage: 0,

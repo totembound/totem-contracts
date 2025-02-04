@@ -30,18 +30,18 @@ library RandomnessHelper {
             return uint8(14 + rand);  // EmeraldGreen, CrimsonRed, or DeepSapphire
         }
         
-        if (rarity == 2) {           // Rare: 4 colors
+        if (rarity == 2) {           // Rare: 3 colors
+            rand = randomWord % 3;
+            return uint8(10 + rand);  // Golden, DarkPurple, or Charcoal
+        }
+        
+        if (rarity == 1) {           // Uncommon: 4 colors
             rand = randomWord % 4;
-            return uint8(10 + rand);  // Golden, DarkPurple, LightBlue, or Charcoal
+            return uint8(5 + rand);   //  Slate, Copper, Cream, or Dappled
         }
         
-        if (rarity == 1) {           // Uncommon: 5 colors
-            rand = randomWord % 5;
-            return uint8(5 + rand);   // Russet, Slate, Copper, Cream, or Dappled
-        }
-        
-        // Common: 5 colors
-        rand = randomWord % 5;
-        return uint8(rand);           // Brown, Gray, White, Tawny, or Speckled
+                                      // Common: 4 colors
+        rand = randomWord % 4;
+        return uint8(rand);           // Brown, Gray, White, or Tawny
     }
 }

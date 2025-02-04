@@ -28,10 +28,11 @@ This specification outlines the design and functionality of the Solidity contrac
   - Fixed supply of 1 billion tokens.
 ### Token Allocation:
   - Initial Supply: 1,000,000,000 tokens.
-    - Gameplay Rewards: 50% (500,000,000 tokens).
-    - Team Allocation: 20% (200,000,000 tokens).
-    - Marketing and Partnerships: 15% (150,000,000 tokens).
+    - Gameplay & Rewards: 40% (400,000,000 tokens).
+    - Ecosystem: 10% (100,000,000 tokens).
     - Liquidity Pool: 10% (100,000,000 tokens).
+    - Marketing and Partnerships: 15% (150,000,000 tokens).
+    - Team Allocation: 20% (200,000,000 tokens).
     - Reserve: 5% (50,000,000 tokens).
 ### Functionality:
 1. Buy Tokens:
