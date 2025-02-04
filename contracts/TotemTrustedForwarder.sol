@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract TotemTrustedForwarder is Ownable {
     using ECDSA for bytes32;
-
-    bytes32 private immutable _DOMAIN_SEPARATOR;
-    bytes32 public constant DOMAIN_TYPE_HASH = 
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    bytes32 public constant REQUEST_TYPE_HASH = 
-        keccak256("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)");
 
     struct ForwardRequest {
         address from;
@@ -22,6 +16,13 @@ contract TotemTrustedForwarder is Ownable {
         uint256 nonce;
         bytes data;
     }
+
+    bytes32 private immutable _DOMAIN_SEPARATOR;
+    bytes32 public constant DOMAIN_TYPE_HASH = 
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 public constant REQUEST_TYPE_HASH = 
+        keccak256("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)");
+
     
     mapping(address => uint256) private _nonces;
     uint256 public maxGasPrice;
@@ -43,46 +44,7 @@ contract TotemTrustedForwarder is Ownable {
         _DOMAIN_SEPARATOR = _buildDomainSeparator();
     }
     
-    function verify(ForwardRequest calldata req, bytes calldata signature) public view returns (bool) {
-        // Validate request parameters
-        require(req.from != address(0), "Invalid from address");
-        require(req.to != address(0), "Invalid to address");
-        require(req.to == targetContract, "Invalid target contract");
-
-        // Normalize addresses for comparison
-        address normalizedFrom = address(uint160(uint256(uint160(req.from))));
-        address normalizedRecovered = address(uint160(uint256(uint160(_recoverSigner(req, signature)))));
-        
-        // Verify signature with normalized addresses
-        bool isValidSigner = normalizedRecovered == normalizedFrom;
-        bool isNonZeroSigner = normalizedRecovered != address(0);
-
-        require(_nonces[normalizedFrom] == req.nonce, "Invalid nonce");
-        return isValidSigner && isNonZeroSigner;
-    }
-
-    function _recoverSigner(
-        ForwardRequest calldata req, 
-        bytes calldata signature
-    ) internal view returns (address) {
-        // Construct the digest using EIP-712 typed data hashing
-        bytes32 digest = _hashTypedDataV4(
-            keccak256(
-                abi.encode(
-                    keccak256("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)"),
-                    req.from,
-                    req.to,
-                    req.value,
-                    req.gas,
-                    req.nonce,
-                    keccak256(req.data)
-                )
-            )
-        );
-
-        // Recover the signer
-        return ECDSA.recover(digest, signature);
-    }
+    receive() external payable {}
 
     function relay(ForwardRequest calldata req, bytes calldata signature) 
         external 
@@ -109,6 +71,7 @@ contract TotemTrustedForwarder is Ownable {
             // If the call failed, revert with the original error message
             if (returndata.length > 0) {
                 // Bubble up the original revert reason
+                // solhint-disable-next-line
                 assembly {
                     revert(add(32, returndata), mload(returndata))
                 }
@@ -146,10 +109,6 @@ contract TotemTrustedForwarder is Ownable {
         targetContract = _targetContract;
     }
 
-    function getNonce(address from) public view returns (uint256) {
-        return _nonces[from];
-    }
-
     function withdrawPOL() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No POL to withdraw");
@@ -158,8 +117,49 @@ contract TotemTrustedForwarder is Ownable {
         require(success, "POL transfer failed");
     }
 
+    function verify(ForwardRequest calldata req, bytes calldata signature) public view returns (bool) {
+        // Validate request parameters
+        require(req.from != address(0), "Invalid from address");
+        require(req.to != address(0), "Invalid to address");
+        require(req.to == targetContract, "Invalid target contract");
+
+        // Normalize addresses for comparison
+        address normalizedFrom = address(uint160(uint256(uint160(req.from))));
+        address normalizedRecovered = address(uint160(uint256(uint160(_recoverSigner(req, signature)))));
+        
+        // Verify signature with normalized addresses
+        bool isValidSigner = normalizedRecovered == normalizedFrom;
+        bool isNonZeroSigner = normalizedRecovered != address(0);
+
+        require(_nonces[normalizedFrom] == req.nonce, "Invalid nonce");
+        return isValidSigner && isNonZeroSigner;
+    }
+
+    function getNonce(address from) public view returns (uint256) {
+        return _nonces[from];
+    }
+
     function domainSeparator() public view returns (bytes32) {
         return _DOMAIN_SEPARATOR;
+    }
+
+    function _recoverSigner(
+        ForwardRequest calldata req, 
+        bytes calldata signature
+    ) internal view returns (address) {
+        // Construct the digest using EIP-712 typed data hashing
+        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
+            keccak256("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)"),
+            req.from,
+            req.to,
+            req.value,
+            req.gas,
+            req.nonce,
+            keccak256(req.data)
+        )));
+
+        // Recover the signer
+        return ECDSA.recover(digest, signature);
     }
 
     function _buildDomainSeparator() private view returns (bytes32) {
@@ -170,6 +170,10 @@ contract TotemTrustedForwarder is Ownable {
             block.chainid,
             address(this)
         ));
+    }
+
+    function _hashTypedDataV4(bytes32 structHash) private view returns (bytes32) {
+        return MessageHashUtils.toTypedDataHash(_DOMAIN_SEPARATOR, structHash);
     }
 
     function _hashForwardRequest(ForwardRequest calldata req) private pure returns (bytes32) {
@@ -184,9 +188,4 @@ contract TotemTrustedForwarder is Ownable {
         ));
     }
 
-    function _hashTypedDataV4(bytes32 structHash) private view returns (bytes32) {
-        return MessageHashUtils.toTypedDataHash(_DOMAIN_SEPARATOR, structHash);
-    }
-
-    receive() external payable {}
 }

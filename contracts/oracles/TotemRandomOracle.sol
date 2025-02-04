@@ -1,54 +1,54 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import "../interfaces/ITotemRandomOracle.sol";
+import { VRFConsumerBaseV2 } from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import { VRFCoordinatorV2Interface } from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import { ConfirmedOwner } from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import { ITotemRandomOracle } from "../interfaces/ITotemRandomOracle.sol";
 
 // Production implementation using Chainlink VRF
 contract TotemRandomOracle is VRFConsumerBaseV2, ConfirmedOwner, ITotemRandomOracle {
-    event RequestSent(uint256 requestId, uint32 numWords);
-    
-    VRFCoordinatorV2Interface COORDINATOR;
+    VRFCoordinatorV2Interface private _coordinator;
     
     // Your subscription ID
-    uint64 s_subscriptionId;
+    uint64 private _subscriptionId;
     
     // The gas lane to use (varies by network)
-    bytes32 keyHash;
+    bytes32 private _keyHash;
     
     // Past requests
-    mapping(uint256 => RequestStatus) public s_requests;
+    mapping(uint256 => RequestStatus) public requests;
     
     // Maximum gas to use for the callback
-    uint32 callbackGasLimit = 100000;
+    uint32 private _callbackGasLimit = 100000;
     
     // The default is 3, but you can set this higher
-    uint16 requestConfirmations = 3;
-    
+    uint16 private _requestConfirmations = 3;
+
+    event RequestSent(uint256 requestId, uint32 numWords);
+
     constructor(
         uint64 subscriptionId,
         address vrfCoordinator,
-        bytes32 _keyHash
+        bytes32 keyHash
     ) VRFConsumerBaseV2(vrfCoordinator) ConfirmedOwner(msg.sender) {
-        COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
-        s_subscriptionId = subscriptionId;
-        keyHash = _keyHash;
+        _coordinator = VRFCoordinatorV2Interface(vrfCoordinator);
+        _subscriptionId = subscriptionId;
+        _keyHash = keyHash;
     }
     
     function requestRandomness(
         uint32 numWords
     ) external override returns (uint256) {
-        uint256 requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
+        uint256 requestId = _coordinator.requestRandomWords(
+            _keyHash,
+            _subscriptionId,
+            _requestConfirmations,
+            _callbackGasLimit,
             numWords
         );
         
-        s_requests[requestId] = RequestStatus({
+        requests[requestId] = RequestStatus({
             fulfilled: false,
             exists: true,
             randomWords: new uint256[](0)
@@ -59,22 +59,24 @@ contract TotemRandomOracle is VRFConsumerBaseV2, ConfirmedOwner, ITotemRandomOra
         
         return requestId;
     }
-    
-    function fulfillRandomWords(
-        uint256 _requestId,
-        uint256[] memory _randomWords
-    ) internal override {
-        require(s_requests[_requestId].exists, "Request not found");
-        s_requests[_requestId].fulfilled = true;
-        s_requests[_requestId].randomWords = _randomWords;
-        emit RandomnessFulfilled(_requestId, _randomWords);
-    }
-    
+
     function getRequestStatus(
-        uint256 _requestId
+        uint256 requestId
     ) external view override returns (bool fulfilled, uint256[] memory randomWords) {
-        require(s_requests[_requestId].exists, "Request not found");
-        RequestStatus memory request = s_requests[_requestId];
+        require(requests[requestId].exists, "Request not found");
+        RequestStatus memory request = requests[requestId];
         return (request.fulfilled, request.randomWords);
     }
+    
+    // solhint-disable-next-line
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {
+        require(requests[requestId].exists, "Request not found");
+        requests[requestId].fulfilled = true;
+        requests[requestId].randomWords = randomWords;
+        emit RandomnessFulfilled(requestId, randomWords);
+    }
+    
 }

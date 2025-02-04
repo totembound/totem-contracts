@@ -80,13 +80,13 @@ interface ITotemAchievements {
         bool achieved;
         bool[] unlockedMilestones;
     }
-
+    
     // Core functions
-    function hasAchievement(bytes32 id, address user) external view returns (bool);
     function unlockAchievement(bytes32 id, address user) external;
     function updateProgress(bytes32 id, address user, uint256 value) external;
 
     // View functions
+    function hasAchievement(bytes32 id, address user) external view returns (bool);
     function getAchievementIds() external view returns (bytes32[] memory);
     function getProgress(bytes32 achievementId, address user) external view returns (AchievementProgress memory);
     function getAchievement(bytes32 id) external view returns (
@@ -99,7 +99,9 @@ interface ITotemAchievements {
         bool enabled,
         Milestone[] memory milestones
     );
-    function getAchievementsByCategory(AchievementCategory category, address user) external view returns (AchievementView[] memory);
+    function getAchievementsByCategory(AchievementCategory category, address user) external view returns (
+        AchievementView[] memory
+    );
     function getUserCategoriesProgress(address user) external view returns (CategoryProgress[] memory);
     function getUserCompletedAchievements(address user) external view returns (AchievementView[] memory);
     function getAchievementProgress(bytes32 id, address user) external view returns (
@@ -109,5 +111,4 @@ interface ITotemAchievements {
     );
     function getDetailedProgress(bytes32 id, address user) external view returns (DetailedProgress memory);
     function getMetadataAttribute(bytes32 id, string calldata key) external view returns (string memory);
-
 }

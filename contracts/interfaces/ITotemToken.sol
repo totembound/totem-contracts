@@ -3,14 +3,6 @@ pragma solidity ^0.8.0;
 
 // ITotemToken.sol
 interface ITotemToken {
-    // Custom Errors
-    error InvalidAddress();
-    error InvalidOracleImplementation();
-    error InvalidAmount();
-    error InsufficientAllocation();
-    error CannotRecoverToken();
-    error TokenTransferFailed();
-
     // Enums
     enum AllocationCategory {
         Game,        // 25% - Gaming infrastructure, player incentives, in-game economy and NFT integrations
@@ -41,14 +33,14 @@ interface ITotemToken {
     );
     event TokenAllocationsInitialized();
 
-    // View Functions
-    function TOTAL_SUPPLY() external pure returns (uint256);
-    function priceOracle() external view returns (address);
-    function getTokenPrice() external view returns (uint256);
-    function getLastPriceUpdate() external view returns (uint256);
-    function getRemainingAllocation(AllocationCategory category) external view returns (uint256);
-    function getAllRemainingAllocations() external view returns (uint256[] memory);
-    
+    // Custom Errors
+    error InvalidAddress();
+    error InvalidOracleImplementation();
+    error InvalidAmount();
+    error InsufficientAllocation();
+    error CannotRecoverToken();
+    error TokenTransferFailed();
+
     // ERC20 Standard Functions
     function transfer(address to, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
@@ -71,4 +63,11 @@ interface ITotemToken {
     function pause() external;
     function unpause() external;
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external;
+
+    // View Functions
+    function priceOracle() external view returns (address);
+    function getTokenPrice() external view returns (uint256);
+    function getLastPriceUpdate() external view returns (uint256);
+    function getRemainingAllocation(AllocationCategory category) external view returns (uint256);
+    function getAllRemainingAllocations() external view returns (uint256[] memory);
 }

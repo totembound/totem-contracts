@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./interfaces/ITotemAchievements.sol";
-import "./TotemToken.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
+import { TotemToken } from "./TotemToken.sol";
 
 error InvalidAddress();
 error InvalidBaseAmount();
@@ -78,9 +78,9 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public trustedForwarder;
     
     // Mappings for reward tracking
-    mapping(bytes32 => RewardInfo) private rewardInfo;
-    mapping(bytes32 => mapping(address => UserTracking)) private userTracking;
-    bytes32[] private rewardIds;
+    mapping(bytes32 => RewardInfo) private _rewardInfo;
+    mapping(bytes32 => mapping(address => UserTracking)) private _userTracking;
+    bytes32[] private _rewardIds;
 
     // Events
     event RewardConfigured(bytes32 indexed rewardId, string name, RewardConfig config);
@@ -123,7 +123,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (config.maxStreakBonus > 1000) revert InvalidMaxStreakBonus();
         if (config.gracePeriod >= config.interval) revert InvalidGracePeriod();
 
-        RewardInfo storage reward = rewardInfo[rewardId];
+        RewardInfo storage reward = _rewardInfo[rewardId];
         reward.name = name;
         reward.description = description;
         reward.iconURI = iconURI;
@@ -131,14 +131,14 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         // Add to tracked rewards if new
         bool isNewReward = true;
-        for (uint i = 0; i < rewardIds.length; i++) {
-            if (rewardIds[i] == rewardId) {
+        for (uint256 i = 0; i < _rewardIds.length; i++) {
+            if (_rewardIds[i] == rewardId) {
                 isNewReward = false;
                 break;
             }
         }
         if (isNewReward) {
-            rewardIds.push(rewardId);
+            _rewardIds.push(rewardId);
         }
 
         emit RewardConfigured(rewardId, name, config);
@@ -150,20 +150,20 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         ProtectionTier memory config
     ) external onlyOwner {
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        if (tier >= rewardInfo[rewardId].config.protectionTierCount) 
+        if (tier >= _rewardInfo[rewardId].config.protectionTierCount) 
             revert InvalidProtectionTier();
         if (config.duration == 0) revert InvalidDuration();
         if (config.cost == 0) revert InvalidCost();
 
-        rewardInfo[rewardId].protectionTiers[tier] = config;
+        _rewardInfo[rewardId].protectionTiers[tier] = config;
         emit ProtectionTierConfigured(rewardId, tier, config);
     }
 
     // Claim functions
     function claim(bytes32 rewardId) external returns (uint256) {
         address user = _msgSender();
-        RewardInfo storage reward = rewardInfo[rewardId];
-        UserTracking storage tracking = userTracking[rewardId][user];
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        UserTracking storage tracking = _userTracking[rewardId][user];
 
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
         if (!reward.config.enabled) revert RewardCurrentlyDisabled();
@@ -187,8 +187,8 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Protection functions
     function purchaseProtection(bytes32 rewardId, uint8 tier) external {
         address user = _msgSender();
-        RewardInfo storage reward = rewardInfo[rewardId];
-        UserTracking storage tracking = userTracking[rewardId][user];
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        UserTracking storage tracking = _userTracking[rewardId][user];
         ProtectionTier memory protection = reward.protectionTiers[tier];
 
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
@@ -210,27 +210,129 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit ProtectionPurchased(rewardId, user, tier, tracking.protectionExpiry);
     }
 
-    // Internal helper functions
-    function _calculateReward(
-        RewardConfig memory config,
-        uint256 streak
-    ) internal pure returns (uint256) {
-        if (streak == 0) return config.baseAmount;
-        
-        uint256 bonusPercent = streak * config.streakBonus;
-        if (bonusPercent > config.maxStreakBonus) {
-            bonusPercent = config.maxStreakBonus;
-        }
-        
-        return config.baseAmount + (config.baseAmount * bonusPercent / 100);
+    function setRewardMetadataAttribute(
+        bytes32 rewardId,
+        string calldata key,
+        string calldata value
+    ) external onlyOwner {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        if (bytes(key).length == 0) revert InvalidMetadataKey();
+        if (bytes(value).length == 0) revert InvalidMetadataValue();
+
+        _rewardInfo[rewardId].metadata[key] = value;
+        emit MetadataSet(rewardId, key, value);
     }
+
+    function enableReward(bytes32 rewardId) external onlyOwner {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        _rewardInfo[rewardId].config.enabled = true;
+        emit RewardEnabled(rewardId);
+    }
+
+    function disableReward(bytes32 rewardId) external onlyOwner {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        _rewardInfo[rewardId].config.enabled = false;
+        emit RewardDisabled(rewardId);
+    }
+
+    function setAchievements(address _achievements) external onlyOwner {
+        if (_achievements == address(0)) revert InvalidAddress();
+        achievements = ITotemAchievements(_achievements);
+    }
+
+    function getMetadataAttribute(
+        bytes32 rewardId,
+        string calldata key
+    ) external view returns (string memory) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        return _rewardInfo[rewardId].metadata[key];
+    }
+
+    function isClaimingAllowed(
+        bytes32 rewardId,
+        address user
+    ) external view returns (bool) {
+        if (!_rewardExists(rewardId)) return false;
+        return _canClaim(rewardId, user);
+    }
+
+    function getRewardIds() external view returns (bytes32[] memory) {
+        return _rewardIds;
+    }
+
+    function getRewardInfo(
+        bytes32 rewardId
+    ) external view returns (
+        string memory name,
+        string memory description,
+        string memory iconURI,
+        RewardConfig memory config
+    ) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        return (reward.name, reward.description, reward.iconURI, reward.config);
+    }
+
+    function getUserInfo(
+        bytes32 rewardId,
+        address user
+    ) external view returns (UserTracking memory) {
+        return _userTracking[rewardId][user];
+    }
+
+    function getProtectionTier(
+        bytes32 rewardId,
+        uint8 tier
+    ) external view returns (ProtectionTier memory) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        if (tier >= _rewardInfo[rewardId].config.protectionTierCount)
+            revert InvalidProtectionTier();
+        return _rewardInfo[rewardId].protectionTiers[tier];
+    }
+
+    // Internal helper functions
+     function _updateTracking(
+        bytes32 rewardId,
+        address user,
+        UserTracking storage tracking,
+        RewardConfig memory config
+    ) internal {
+        uint256 nextClaimTime = tracking.lastClaim + config.interval;
+        
+        // Check if streak continues
+        bool maintainStreak = block.timestamp <= nextClaimTime + config.gracePeriod;
+        
+        // If past grace period but protected
+        if (!maintainStreak && tracking.protectionExpiry >= block.timestamp) {
+            maintainStreak = true;
+            // Consume protection if used
+            tracking.protectionExpiry = 0;
+            emit ProtectionUsed(rewardId, user, tracking.activeTier);
+        }
+
+        if (maintainStreak) {
+            tracking.currentStreak++;
+            if (tracking.currentStreak > tracking.bestStreak) {
+                tracking.bestStreak = tracking.currentStreak;
+            }
+        } else {
+            tracking.currentStreak = 1;
+        }
+
+        tracking.lastClaim = block.timestamp;
+        tracking.totalClaims++;
+    }
+
+    // Override required functions
+    // solhint-disable-next-line
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function _canClaim(
         bytes32 rewardId,
         address user
     ) internal view returns (bool) {
-        RewardInfo storage reward = rewardInfo[rewardId];
-        UserTracking storage tracking = userTracking[rewardId][user];
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        UserTracking storage tracking = _userTracking[rewardId][user];
 
         // First time claim is always allowed
         if (tracking.lastClaim == 0) {
@@ -267,136 +369,10 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return true;
     }
 
-     function _updateTracking(
-        bytes32 rewardId,
-        address user,
-        UserTracking storage tracking,
-        RewardConfig memory config
-    ) internal {
-        uint256 nextClaimTime = tracking.lastClaim + config.interval;
-        
-        // Check if streak continues
-        bool maintainStreak = block.timestamp <= nextClaimTime + config.gracePeriod;
-        
-        // If past grace period but protected
-        if (!maintainStreak && tracking.protectionExpiry >= block.timestamp) {
-            maintainStreak = true;
-            // Consume protection if used
-            tracking.protectionExpiry = 0;
-            emit ProtectionUsed(rewardId, user, tracking.activeTier);
-        }
-
-        if (maintainStreak) {
-            tracking.currentStreak++;
-            if (tracking.currentStreak > tracking.bestStreak) {
-                tracking.bestStreak = tracking.currentStreak;
-            }
-        } else {
-            tracking.currentStreak = 1;
-        }
-
-        tracking.lastClaim = block.timestamp;
-        tracking.totalClaims++;
-    }
-
-    function _rewardExists(bytes32 rewardId) internal view returns (bool) {
-        for (uint i = 0; i < rewardIds.length; i++) {
-            if (rewardIds[i] == rewardId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // View functions
-    function isClaimingAllowed(
-        bytes32 rewardId,
-        address user
-    ) external view returns (bool) {
-        if (!_rewardExists(rewardId)) return false;
-        return _canClaim(rewardId, user);
-    }
-
-    function getRewardIds() external view returns (bytes32[] memory) {
-        return rewardIds;
-    }
-
-    function getRewardInfo(
-        bytes32 rewardId
-    ) external view returns (
-        string memory name,
-        string memory description,
-        string memory iconURI,
-        RewardConfig memory config
-    ) {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        RewardInfo storage reward = rewardInfo[rewardId];
-        return (reward.name, reward.description, reward.iconURI, reward.config);
-    }
-
-    function getUserInfo(
-        bytes32 rewardId,
-        address user
-    ) external view returns (UserTracking memory) {
-        return userTracking[rewardId][user];
-    }
-
-    function getProtectionTier(
-        bytes32 rewardId,
-        uint8 tier
-    ) external view returns (ProtectionTier memory) {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        if (tier >= rewardInfo[rewardId].config.protectionTierCount)
-            revert InvalidProtectionTier();
-        return rewardInfo[rewardId].protectionTiers[tier];
-    }
-
-    function setAchievements(address _achievements) external onlyOwner {
-        if (_achievements == address(0)) revert InvalidAddress();
-        achievements = ITotemAchievements(_achievements);
-    }
-
-    // Metadata functions
-    function setRewardMetadataAttribute(
-        bytes32 rewardId,
-        string calldata key,
-        string calldata value
-    ) external onlyOwner {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        if (bytes(key).length == 0) revert InvalidMetadataKey();
-        if (bytes(value).length == 0) revert InvalidMetadataValue();
-
-        rewardInfo[rewardId].metadata[key] = value;
-        emit MetadataSet(rewardId, key, value);
-    }
-
-    function getMetadataAttribute(
-        bytes32 rewardId,
-        string calldata key
-    ) external view returns (string memory) {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        return rewardInfo[rewardId].metadata[key];
-    }
-
-    // Admin functions
-    function enableReward(bytes32 rewardId) external onlyOwner {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        rewardInfo[rewardId].config.enabled = true;
-        emit RewardEnabled(rewardId);
-    }
-
-    function disableReward(bytes32 rewardId) external onlyOwner {
-        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
-        rewardInfo[rewardId].config.enabled = false;
-        emit RewardDisabled(rewardId);
-    }
-
-    // Override required functions
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-
     function _msgSender() internal view override returns (address sender) {
         if (msg.sender == trustedForwarder) {
             // Extract the original sender from the end of the calldata
+            // solhint-disable-next-line
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
             }
@@ -408,6 +384,15 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return sender;
     }
 
+    function _rewardExists(bytes32 rewardId) internal view returns (bool) {
+        for (uint256 i = 0; i < _rewardIds.length; i++) {
+            if (_rewardIds[i] == rewardId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function _msgData() internal view override returns (bytes calldata) {
         if (msg.sender == trustedForwarder) {
             // Remove the last 20 bytes (address) from the calldata
@@ -416,5 +401,19 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         else {
             return msg.data;
         }
+    }
+    
+    function _calculateReward(
+        RewardConfig memory config,
+        uint256 streak
+    ) internal pure returns (uint256) {
+        if (streak == 0) return config.baseAmount;
+        
+        uint256 bonusPercent = streak * config.streakBonus;
+        if (bonusPercent > config.maxStreakBonus) {
+            bonusPercent = config.maxStreakBonus;
+        }
+        
+        return config.baseAmount + (config.baseAmount * bonusPercent / 100);
     }
 }

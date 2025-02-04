@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/ITotemToken.sol";
-import "./interfaces/ITotemPriceOracle.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ITotemToken } from "./interfaces/ITotemToken.sol";
+import { ITotemPriceOracle } from "./interfaces/ITotemPriceOracle.sol";
 
 contract TotemToken is 
     ERC20Upgradeable, 
@@ -27,7 +27,7 @@ contract TotemToken is
 
     // State variables
     mapping(AllocationCategory => uint256) private _allocations;
-    ITotemPriceOracle public _priceOracle;
+    ITotemPriceOracle private _priceOracle;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -106,6 +106,36 @@ contract TotemToken is
         return _allocations[fromCategory];
     }
 
+    // Admin functions
+    function updateOracle(address newOracle) external onlyOwner {
+        if (newOracle == address(0)) revert InvalidAddress();
+        if (ITotemPriceOracle(newOracle).getPrice() <= 0)
+            revert InvalidOracleImplementation();
+        
+        _priceOracle = ITotemPriceOracle(newOracle);
+        emit OracleUpdated(newOracle);
+    }
+
+    // Pause functionality
+    function pause() external override onlyOwner {
+        _pause();
+    }
+
+    function unpause() external override onlyOwner {
+        _unpause();
+    }
+
+    // Emergency functions
+    function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
+        if (tokenAddress == address(0)) revert InvalidAddress();
+        if (tokenAddress == address(this)) revert CannotRecoverToken();
+        IERC20(tokenAddress).transfer(owner(), tokenAmount);
+    }
+
+    function priceOracle() external view returns (address) {
+        return address(_priceOracle);
+    }
+
     function getTokenPrice() external view returns (uint256) {
         return _priceOracle.getPrice();
     }
@@ -130,20 +160,6 @@ contract TotemToken is
         remainingAllocations[6] = _allocations[AllocationCategory.Reserved];
         
         return remainingAllocations;
-    }
-
-    function priceOracle() external view returns (address) {
-        return address(_priceOracle);
-    }
-
-    // Admin functions
-    function updateOracle(address newOracle) external onlyOwner {
-        if (newOracle == address(0)) revert InvalidAddress();
-        if (ITotemPriceOracle(newOracle).getPrice() <= 0)
-            revert InvalidOracleImplementation();
-        
-        _priceOracle = ITotemPriceOracle(newOracle);
-        emit OracleUpdated(newOracle);
     }
 
     // Override transfer functions to enforce pause
@@ -177,22 +193,7 @@ contract TotemToken is
         return super.approve(spender, amount);
     }
 
-    // Pause functionality
-    function pause() external override onlyOwner {
-        _pause();
-    }
-
-    function unpause() external override onlyOwner {
-        _unpause();
-    }
-
-    // Emergency functions
-    function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        if (tokenAddress == address(0)) revert InvalidAddress();
-        if (tokenAddress == address(this)) revert CannotRecoverToken();
-        IERC20(tokenAddress).transfer(owner(), tokenAmount);
-    }
-
     // Internal functions
+    // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
