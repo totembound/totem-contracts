@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./interfaces/ITotemAchievements.sol";
-import "./TotemToken.sol";
-import "./TotemNFT.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
+import { TotemToken } from "./TotemToken.sol";
+import { TotemNFT } from "./TotemNFT.sol";
 
 error AlreadySignedUp();
 error NotSignedUp();
@@ -16,6 +16,7 @@ error PolTransferFailed();
 error PurchaseFailed();
 error ActionNotAvailable();
 error PaymentFailed();
+error InvalidAddress();
 error InvalidSignupReward();
 error InvalidMintPrice();
 error InvalidWindow1();
@@ -27,6 +28,8 @@ error InvalidExperienceGain();
 error InvalidForwarderAddress();
 error InsufficientPolBalance();
 error NoPolToWithdraw();
+error InvalidSpecies();
+error NotTokenOwner();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core structs for Game configuration
@@ -85,6 +88,12 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(ActionType => ActionConfig) public actionConfigs;
     mapping(uint256 => mapping(ActionType => ActionTracking)) public actionTracking;
 
+    // Constants
+    uint256 private constant _SECONDS_PER_DAY = 86400;
+    bytes32 private constant _FEED_ACHIEVEMENT_ID = keccak256("feed_progression");
+    bytes32 private constant _TREAT_ACHIEVEMENT_ID = keccak256("treat_progression");
+    bytes32 private constant _TRAIN_ACHIEVEMENT_ID = keccak256("train_progression");
+
     // Events
     event GameParametersUpdated(GameParameters params);
     event TimeWindowsUpdated(TimeWindows windows);
@@ -94,12 +103,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event TotemPurchased(address indexed user, uint256 indexed tokenId, TotemNFT.Species species);
     event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
-
-    // Constants
-    uint256 public constant SECONDS_PER_DAY = 86400;
-    bytes32 private constant FEED_ACHIEVEMENT_ID = keccak256("feed_progression");
-    bytes32 private constant TREAT_ACHIEVEMENT_ID = keccak256("treat_progression");
-    bytes32 private constant TRAIN_ACHIEVEMENT_ID = keccak256("train_progression");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -190,31 +193,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!sent) revert PolTransferFailed();
     }
 
-    // Initialize action tracking when NFT is minted
-    function _initializeActionTracking(uint256 tokenId) internal {
-        uint256 initialTime = block.timestamp - SECONDS_PER_DAY;  // Allow immediate use
-        uint256 currentDay = (block.timestamp / 1 days) * 1 days;
-
-        // Initialize tracking for all actions
-        actionTracking[tokenId][ActionType.Feed] = ActionTracking({
-            lastUsed: initialTime,
-            dailyUses: 0,
-            dayStartTime: currentDay
-        });
-
-        actionTracking[tokenId][ActionType.Train] = ActionTracking({
-            lastUsed: initialTime,
-            dailyUses: 0,
-            dayStartTime: currentDay
-        });
-
-        actionTracking[tokenId][ActionType.Treat] = ActionTracking({
-            lastUsed: initialTime,
-            dailyUses: 0,
-            dayStartTime: currentDay
-        });
-    }
-
     // This is where users spend TOTEM to get their NFT
     function purchaseTotem(uint8 speciesId) external {
         if (!hasSignedUp[_msgSender()]) revert NotSignedUp();
@@ -231,6 +209,129 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _initializeActionTracking(tokenId);
 
         emit TotemPurchased(_msgSender(), tokenId, TotemNFT.Species(speciesId));
+    }
+
+    // Convenience functions for actions
+    function feed(uint256 tokenId) external {
+        executeAction(tokenId, ActionType.Feed);
+    }
+
+    function train(uint256 tokenId) external {
+        executeAction(tokenId, ActionType.Train);
+    }
+
+    function treat(uint256 tokenId) external {
+        executeAction(tokenId, ActionType.Treat);
+    }
+
+    function setMetadataURI(
+        TotemNFT.Species species,
+        TotemNFT.Color color,
+        uint256 stage,
+        string memory ipfsHash
+    ) external onlyOwner {
+        totemNFT.setMetadataURI(species, color, stage, ipfsHash);
+    }
+
+    function setMetadataURIs(
+        TotemNFT.Species[] calldata species,
+        TotemNFT.Color[] calldata colors,
+        uint256[] calldata stages,
+        string[] calldata ipfsHashes
+    ) external onlyOwner {
+        totemNFT.batchSetMetadataURIs(species, colors, stages, ipfsHashes);
+    }
+
+    function setValidColorsForRarities(
+        uint256[] calldata rarities,
+        uint256[] calldata colors
+    ) external onlyOwner {
+        totemNFT.setValidColorsForRarities(rarities, colors);
+    }
+
+    function setStageThresholds(uint256[4] calldata thresholds) external {
+        totemNFT.setStageThresholds(thresholds);
+    }
+
+    function setAchievements(address _achievements) external onlyOwner {
+        if (_achievements == address(0)) revert InvalidAddress();
+        achievements = ITotemAchievements(_achievements);
+    }
+
+    function updateActionConfig(
+        ActionType actionType,
+        ActionConfig memory _config
+    ) external onlyOwner {
+        if (_config.cost <= 0) revert InvalidActionCost();
+        if (_config.happinessChange > 100) revert InvalidHappinessChange();
+        if (_config.experienceGain > 1000) revert InvalidExperienceGain();
+        
+        actionConfigs[actionType] = _config;
+        emit ActionConfigUpdated(actionType, _config);
+    }
+
+    function updateTrustedForwarder(address _newForwarder) external onlyOwner {
+        if (_newForwarder == address(0)) revert InvalidForwarderAddress();
+        trustedForwarder = _newForwarder;
+        emit TrustedForwarderUpdated(_newForwarder);
+    }
+
+    function fundTrustedForwarder(uint256 amount) external onlyOwner {
+        if (address(this).balance < amount) revert InsufficientPolBalance();
+    
+        (bool success, ) = payable(trustedForwarder).call{value: amount}("");
+        if (!success) revert PolTransferFailed();
+
+        emit TrustedForwarderFunded(amount);
+    }
+
+    function withdrawPol() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert NoPolToWithdraw();
+        
+        (bool success, ) = payable(owner()).call{value: balance}("");
+        if (!success) revert PolTransferFailed();
+    }
+
+    function updateGameParameters(GameParameters memory _params) external onlyOwner {
+        if (_params.signupReward <= 0) revert InvalidSignupReward();
+        if (_params.mintPrice <= 0) revert InvalidMintPrice();
+
+        gameParams = _params;
+        emit GameParametersUpdated(_params);
+    }
+
+    function updateTimeWindows(TimeWindows memory _windows) external onlyOwner {
+        if (_windows.window1Start >= _windows.window2Start) revert InvalidWindow1();
+        if (_windows.window2Start >= _windows.window3Start) revert InvalidWindow2();
+        if (_windows.window3Start >= _SECONDS_PER_DAY) revert InvalidWindow3();
+        
+        timeWindows = _windows;
+        emit TimeWindowsUpdated(_windows);
+    }
+
+    // View functions
+    function canUseAction(uint256 tokenId, ActionType actionType) external view returns (bool) {
+        // Internal implementation details
+        return _canUseAction(tokenId, actionType);
+    }
+
+    function getGameConfiguration() external view returns (
+        GameParameters memory params,
+        TimeWindows memory windows,
+        ActionConfig[] memory configs
+    ) {
+        configs = new ActionConfig[](3);  // Assuming 3 action types
+        configs[0] = actionConfigs[ActionType.Feed];
+        configs[1] = actionConfigs[ActionType.Train];
+        configs[2] = actionConfigs[ActionType.Treat];
+        
+        return (gameParams, timeWindows, configs);
+    }
+
+    function getActionTracking(uint256 tokenId, ActionType actionType) 
+        external view returns (ActionTracking memory) {
+        return actionTracking[tokenId][actionType];
     }
 
     // Action execution
@@ -259,17 +360,61 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // update achievements progression
         if (address(achievements) != address(0)) {
             if (actionType == ActionType.Feed) {
-                achievements.updateProgress(FEED_ACHIEVEMENT_ID, user, 1);
+                achievements.updateProgress(_FEED_ACHIEVEMENT_ID, user, 1);
             }
             else if (actionType == ActionType.Treat) {
-                achievements.updateProgress(TREAT_ACHIEVEMENT_ID, user, 1);
+                achievements.updateProgress(_TREAT_ACHIEVEMENT_ID, user, 1);
             }
             else if (actionType == ActionType.Train) {
-                achievements.updateProgress(TRAIN_ACHIEVEMENT_ID, user, 1);
+                achievements.updateProgress(_TRAIN_ACHIEVEMENT_ID, user, 1);
             }
         }
 
         emit ActionPerformed(tokenId, actionType);
+    }
+
+    // Initialize action tracking when NFT is minted
+    function _initializeActionTracking(uint256 tokenId) internal {
+        uint256 initialTime = block.timestamp - _SECONDS_PER_DAY;  // Allow immediate use
+        uint256 currentDay = (block.timestamp / 1 days) * 1 days;
+
+        // Initialize tracking for all actions
+        actionTracking[tokenId][ActionType.Feed] = ActionTracking({
+            lastUsed: initialTime,
+            dailyUses: 0,
+            dayStartTime: currentDay
+        });
+
+        actionTracking[tokenId][ActionType.Train] = ActionTracking({
+            lastUsed: initialTime,
+            dailyUses: 0,
+            dayStartTime: currentDay
+        });
+
+        actionTracking[tokenId][ActionType.Treat] = ActionTracking({
+            lastUsed: initialTime,
+            dailyUses: 0,
+            dayStartTime: currentDay
+        });
+    }
+
+    // Action tracking update
+    function _updateActionTracking(
+        uint256 tokenId,
+        ActionType actionType
+    ) internal {
+        ActionTracking storage tracking = actionTracking[tokenId][actionType];
+        uint256 currentTime = block.timestamp;
+        uint256 currentDay = (currentTime / 1 days) * 1 days;
+
+        // Reset daily uses if it's a new day
+        if (currentDay > tracking.dayStartTime) {
+            tracking.dailyUses = 0;
+            tracking.dayStartTime = currentDay;
+        }
+
+        tracking.lastUsed = currentTime;
+        tracking.dailyUses++;
     }
 
     // Action validation
@@ -317,18 +462,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return true;
     }
 
-    function canUseAction(uint256 tokenId, ActionType actionType) external view returns (bool) {
-        // Internal implementation details
-        return _canUseAction(tokenId, actionType);
-    }
-
     // Time window validation
     function _isInActiveWindow(uint256 lastUsed) internal view returns (bool) {
         uint256 timestamp = block.timestamp;
         
         // Get day timestamps
-        uint256 todayUTC = (timestamp / SECONDS_PER_DAY) * SECONDS_PER_DAY;
-        uint256 lastUsedDay = (lastUsed / SECONDS_PER_DAY) * SECONDS_PER_DAY;
+        uint256 todayUTC = (timestamp / _SECONDS_PER_DAY) * _SECONDS_PER_DAY;
+        uint256 lastUsedDay = (lastUsed / _SECONDS_PER_DAY) * _SECONDS_PER_DAY;
         
         // If different day, allow action
         if (todayUTC > lastUsedDay) return true;
@@ -352,150 +492,14 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    // Convenience functions for actions
-    function feed(uint256 tokenId) external {
-        executeAction(tokenId, ActionType.Feed);
-    }
-
-    function train(uint256 tokenId) external {
-        executeAction(tokenId, ActionType.Train);
-    }
-
-    function treat(uint256 tokenId) external {
-        executeAction(tokenId, ActionType.Treat);
-    }
-
-    // View functions
-    function getGameConfiguration() external view returns (
-        GameParameters memory params,
-        TimeWindows memory windows,
-        ActionConfig[] memory configs
-    ) {
-        configs = new ActionConfig[](3);  // Assuming 3 action types
-        configs[0] = actionConfigs[ActionType.Feed];
-        configs[1] = actionConfigs[ActionType.Train];
-        configs[2] = actionConfigs[ActionType.Treat];
-        
-        return (gameParams, timeWindows, configs);
-    }
-
-    function getActionTracking(uint256 tokenId, ActionType actionType) 
-        external view returns (ActionTracking memory) {
-        return actionTracking[tokenId][actionType];
-    }
-
-    function setAchievements(address _achievements) external onlyOwner {
-        if (_achievements == address(0)) revert InvalidAddress();
-        achievements = ITotemAchievements(_achievements);
-    }
-
-    // Admin functions for dynamic updates
-    function setMetadataURI(
-        TotemNFT.Species species,
-        TotemNFT.Color color,
-        uint256 stage,
-        string memory ipfsHash
-    ) external onlyOwner {
-        totemNFT.setMetadataURI(species, color, stage, ipfsHash);
-    }
-
-    function setMetadataURIs(
-        TotemNFT.Species[] calldata species,
-        TotemNFT.Color[] calldata colors,
-        uint256[] calldata stages,
-        string[] calldata ipfsHashes
-    ) external onlyOwner {
-        totemNFT.batchSetMetadataURIs(species, colors, stages, ipfsHashes);
-    }
-
-    function setValidColorsForRarities(
-        uint256[] calldata rarities,
-        uint256[] calldata colors
-    ) external onlyOwner {
-        totemNFT.setValidColorsForRarities(rarities, colors);
-    }
-
-    function setStageThresholds(uint256[4] calldata thresholds) external {
-        totemNFT.setStageThresholds(thresholds);
-    }
-
-    // Action tracking update
-    function _updateActionTracking(
-        uint256 tokenId,
-        ActionType actionType
-    ) internal {
-        ActionTracking storage tracking = actionTracking[tokenId][actionType];
-        uint256 currentTime = block.timestamp;
-        uint256 currentDay = (currentTime / 1 days) * 1 days;
-
-        // Reset daily uses if it's a new day
-        if (currentDay > tracking.dayStartTime) {
-            tracking.dailyUses = 0;
-            tracking.dayStartTime = currentDay;
-        }
-
-        tracking.lastUsed = currentTime;
-        tracking.dailyUses++;
-    }
-
-    function updateGameParameters(GameParameters memory _params) external onlyOwner {
-        if (_params.signupReward <= 0) revert InvalidSignupReward();
-        if (_params.mintPrice <= 0) revert InvalidMintPrice();
-
-        gameParams = _params;
-        emit GameParametersUpdated(_params);
-    }
-
-    function updateTimeWindows(TimeWindows memory _windows) external onlyOwner {
-        if (_windows.window1Start >= _windows.window2Start) revert InvalidWindow1();
-        if (_windows.window2Start >= _windows.window3Start) revert InvalidWindow2();
-        if (_windows.window3Start >= SECONDS_PER_DAY) revert InvalidWindow3();
-        
-        timeWindows = _windows;
-        emit TimeWindowsUpdated(_windows);
-    }
-
-    function updateActionConfig(
-        ActionType actionType,
-        ActionConfig memory _config
-    ) external onlyOwner {
-        if (_config.cost <= 0) revert InvalidActionCost();
-        if (_config.happinessChange > 100) revert InvalidHappinessChange();
-        if (_config.experienceGain > 1000) revert InvalidExperienceGain();
-        
-        actionConfigs[actionType] = _config;
-        emit ActionConfigUpdated(actionType, _config);
-    }
-
-    function updateTrustedForwarder(address _newForwarder) external onlyOwner {
-        if (_newForwarder == address(0)) revert InvalidForwarderAddress();
-        trustedForwarder = _newForwarder;
-        emit TrustedForwarderUpdated(_newForwarder);
-    }
-
-    function fundTrustedForwarder(uint256 amount) external onlyOwner {
-        if (address(this).balance < amount) revert InsufficientPolBalance();
-    
-        (bool success, ) = payable(trustedForwarder).call{value: amount}("");
-        if (!success) revert PolTransferFailed();
-
-        emit TrustedForwarderFunded(amount);
-    }
-
-    function withdrawPol() external onlyOwner {
-        uint256 balance = address(this).balance;
-        if (balance == 0) revert NoPolToWithdraw();
-        
-        (bool success, ) = payable(owner()).call{value: balance}("");
-        if (!success) revert PolTransferFailed();
-    }
-
     // Helper functions
+    // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function _msgSender() internal view override returns (address sender) {
         if (msg.sender == trustedForwarder) {
             // Extract the original sender from the end of the calldata
+            // solhint-disable-next-line
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
             }

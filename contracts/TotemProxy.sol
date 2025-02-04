@@ -1,16 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-
-/**
- * @title TotemProxyAdmin
- * @dev This is the admin contract for the proxy, capable of upgrading the implementation
- */
-contract TotemProxyAdmin is ProxyAdmin {
-    constructor(address owner) ProxyAdmin(owner) {}
-}
+import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /**
  * @title TotemProxy

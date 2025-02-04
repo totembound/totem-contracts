@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import "../interfaces/ITotemPriceOracle.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import { ITotemPriceOracle } from "../interfaces/ITotemPriceOracle.sol";
 
 contract TotemChainlinkPriceOracle is ITotemPriceOracle, Ownable {
     AggregatorV3Interface private _polPriceAggregator;
@@ -18,7 +18,15 @@ contract TotemChainlinkPriceOracle is ITotemPriceOracle, Ownable {
         _lastUpdate = block.timestamp;
         emit RatioUpdated(initialRatio, block.timestamp);
     }
-    
+
+    function updateRatio(uint256 newRatio) external onlyOwner {
+        require(newRatio > 0, "Invalid ratio");
+        _priceRatio = newRatio;
+        _lastUpdate = block.timestamp;
+        emit RatioUpdated(newRatio, block.timestamp);
+        emit PriceUpdated(this.getPrice(), block.timestamp);
+    }
+
     function getPrice() external view override returns (uint256) {
         (, int256 price,,,) = _polPriceAggregator.latestRoundData();
         require(price > 0, "Invalid POL price");
@@ -29,13 +37,5 @@ contract TotemChainlinkPriceOracle is ITotemPriceOracle, Ownable {
     function getLastUpdate() external view override returns (uint256) {
         (,,,uint256 updatedAt,) = _polPriceAggregator.latestRoundData();
         return updatedAt;
-    }
-    
-    function updateRatio(uint256 newRatio) external onlyOwner {
-        require(newRatio > 0, "Invalid ratio");
-        _priceRatio = newRatio;
-        _lastUpdate = block.timestamp;
-        emit RatioUpdated(newRatio, block.timestamp);
-        emit PriceUpdated(this.getPrice(), block.timestamp);
     }
 }

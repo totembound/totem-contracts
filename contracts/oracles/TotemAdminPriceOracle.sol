@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/ITotemPriceOracle.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ITotemPriceOracle } from "../interfaces/ITotemPriceOracle.sol";
 
 contract TotemAdminPriceOracle is ITotemPriceOracle, Ownable {
     uint256 private _currentPrice;

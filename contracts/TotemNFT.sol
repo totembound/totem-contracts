@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
-import "./helpers/RandomnessHelper.sol";
-import "./interfaces/ITotemRandomOracle.sol";
-import "./interfaces/ITotemAchievements.sol";
+import { ERC721EnumerableUpgradeable } 
+    from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { RandomnessHelper } from "./helpers/RandomnessHelper.sol";
+import { ITotemRandomOracle } from "./interfaces/ITotemRandomOracle.sol";
+import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
 
 error InvalidSpecies();
 error NoValidColorForRarity();
@@ -98,6 +98,16 @@ contract TotemNFT is
     // Experience thresholds for each stage
     uint256[4] public stageThresholds;
     
+    // Constants
+    bytes32 private constant _COLLECTOR_ACHIEVEMENT_ID = keccak256("collector_progression");
+    bytes32 private constant _EVOLUTION_ACHIEVEMENT_ID = keccak256("evolution_progression");
+    bytes32 private constant _RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
+    bytes32 private constant _EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
+    bytes32 private constant _LEGENDARY_COLLECTOR_ACHIEVEMENT_ID = keccak256("legendary_collector");
+    bytes32 private constant _RARE_EVOLUTION_ACHIEVEMENT_ID = keccak256("rare_evolution");
+    bytes32 private constant _EPIC_EVOLUTION_ACHIEVEMENT_ID = keccak256("epic_evolution");
+    bytes32 private constant _LEGENDARY_EVOLUTION_ACHIEVEMENT_ID = keccak256("legendary_evolution");
+
      // Events
     event AttributesUpdated(uint256 indexed tokenId, uint256 happiness, uint256 experience);
     event DisplayNameSet(uint256 indexed tokenId, string newName);
@@ -105,16 +115,6 @@ contract TotemNFT is
     event TotemStaked(uint256 indexed tokenId);
     event TotemUnstaked(uint256 indexed tokenId);
     event MetadataURISet(Species species, Color color, uint256 stage, string uri);
-
-    // Constants
-    bytes32 private constant COLLECTOR_ACHIEVEMENT_ID = keccak256("collector_progression");
-    bytes32 private constant EVOLUTION_ACHIEVEMENT_ID = keccak256("evolution_progression");
-    bytes32 private constant RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
-    bytes32 private constant EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
-    bytes32 private constant LEGENDARY_COLLECTOR_ACHIEVEMENT_ID = keccak256("legendary_collector");
-    bytes32 private constant RARE_EVOLUTION_ACHIEVEMENT_ID = keccak256("rare_evolution");
-    bytes32 private constant EPIC_EVOLUTION_ACHIEVEMENT_ID = keccak256("epic_evolution");
-    bytes32 private constant LEGENDARY_EVOLUTION_ACHIEVEMENT_ID = keccak256("legendary_evolution");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -165,16 +165,16 @@ contract TotemNFT is
 
         // Check for achievements
         if (address(achievements) != address(0)) {
-            achievements.updateProgress(COLLECTOR_ACHIEVEMENT_ID, to, 1);
+            achievements.updateProgress(_COLLECTOR_ACHIEVEMENT_ID, to, 1);
 
             if (rarity == uint8(Rarity.Rare)) {
-                achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, to);
+                achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, to);
             }
             else if (rarity == uint8(Rarity.Epic)) {
-                achievements.unlockAchievement(EPIC_COLLECTOR_ACHIEVEMENT_ID, to);
+                achievements.unlockAchievement(_EPIC_COLLECTOR_ACHIEVEMENT_ID, to);
             }
             else if (rarity == uint8(Rarity.Legendary)) {
-                achievements.unlockAchievement(LEGENDARY_COLLECTOR_ACHIEVEMENT_ID, to);
+                achievements.unlockAchievement(_LEGENDARY_COLLECTOR_ACHIEVEMENT_ID, to);
             }
         }
 
@@ -203,17 +203,17 @@ contract TotemNFT is
 
         if (address(achievements) != address(0)) {
             // Progress on evolution stages
-            achievements.updateProgress(EVOLUTION_ACHIEVEMENT_ID, user, totem.stage);
+            achievements.updateProgress(_EVOLUTION_ACHIEVEMENT_ID, user, totem.stage);
 
             if (totem.stage == 4) {
                 if (totem.rarity == Rarity.Rare) {
-                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
                 }
                 else if (totem.rarity == Rarity.Epic) {
-                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
                 }
                 else if (totem.rarity == Rarity.Legendary) {
-                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
                 }
             }
         }
@@ -232,9 +232,9 @@ contract TotemNFT is
         
         // Update happiness
         if (isHappinessIncrease) {
-            attributes[tokenId].happiness = min(attributes[tokenId].happiness + happinessChange, 100);
+            attributes[tokenId].happiness = _min(attributes[tokenId].happiness + happinessChange, 100);
         } else {
-            attributes[tokenId].happiness = max(attributes[tokenId].happiness - happinessChange, 0);
+            attributes[tokenId].happiness = _max(attributes[tokenId].happiness - happinessChange, 0);
         }
         
         // Update experience
@@ -283,7 +283,7 @@ contract TotemNFT is
             colors.length != stages.length ||
             stages.length != ipfsHashes.length) revert ArrayLengthMismatch();
         
-        for(uint i = 0; i < species.length; i++) {
+        for(uint256 i = 0; i < species.length; i++) {
             if (stages[i] > 4) revert InvalidStage();
             if (colors[i] == Color.None) revert InvalidColor();
             _metadataURIs[species[i]][colors[i]][stages[i]] = ipfsHashes[i];
@@ -306,7 +306,7 @@ contract TotemNFT is
     function setDisplayName(uint256 tokenId, string memory newName) external {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        if (!validateDisplayName(newName)) revert InvalidNameFormat();
+        if (!_validateDisplayName(newName)) revert InvalidNameFormat();
         
         attributes[tokenId].displayName = newName;
         emit DisplayNameSet(tokenId, newName);
@@ -314,32 +314,10 @@ contract TotemNFT is
 
     function forceUpdateDisplayName(uint256 tokenId, string memory newName) external onlyOwner {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
-        if (!validateDisplayName(newName)) revert InvalidNameFormat();
+        if (!_validateDisplayName(newName)) revert InvalidNameFormat();
 
         attributes[tokenId].displayName = newName;
         emit DisplayNameSet(tokenId, newName);
-    }
-
-    function validateDisplayName(string memory str) internal pure returns (bool) {
-        bytes memory b = bytes(str);
-        if (b.length < 1 || b.length > 32) return false;
-        // Basic emoji range + alphanumeric + basic punctuation
-        for(uint i; i<b.length; i++){
-            bytes1 char = b[i];
-            if(uint8(char) >= 0xF0) return false; // Block 4-byte UTF8
-        }
-        return true;
-    }
-
-    // Get the complete URI for a token
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
-        TotemAttributes memory totem = attributes[tokenId];
-        
-        string memory hash = _metadataURIs[totem.species][totem.color][totem.stage];
-        if (bytes(hash).length == 0) revert URINotSet();
-        
-        return string(abi.encodePacked("ipfs://", hash));
     }
 
     function tokensOfOwner(address user) external view returns (uint256[] memory) {
@@ -369,13 +347,15 @@ contract TotemNFT is
         return string(abi.encodePacked("ipfs://", hash));
     }
     
-    // Helper functions
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    function max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a > b ? a : b;
+    // Get the complete URI for a token
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        TotemAttributes memory totem = attributes[tokenId];
+        
+        string memory hash = _metadataURIs[totem.species][totem.color][totem.stage];
+        if (bytes(hash).length == 0) revert URINotSet();
+        
+        return string(abi.encodePacked("ipfs://", hash));
     }
 
     // Marketplace Compatibility Functions
@@ -389,10 +369,27 @@ contract TotemNFT is
         return super.supportsInterface(interfaceId);
     }
 
+    // Helper functions
+    function _validateDisplayName(string memory str) internal pure returns (bool) {
+        bytes memory b = bytes(str);
+        if (b.length < 1 || b.length > 32) return false;
+        // Basic emoji range + alphanumeric + basic punctuation
+        for(uint256 i; i<b.length; i++){
+            bytes1 char = b[i];
+            if(uint8(char) >= 0xF0) return false; // Block 4-byte UTF8
+        }
+        return true;
+    }
+
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
+    }
+
     // Upgrade authorization
-    function _authorizeUpgrade(address newImplementation) 
-        internal 
-        override 
-        onlyOwner 
-    {}
+    // solhint-disable-next-line
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
