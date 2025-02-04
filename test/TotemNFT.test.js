@@ -139,9 +139,6 @@ describe("TotemNFT", function () {
             const initialAttrs = await nft.attributes(tokenId);
             const firstStageThreshold = await nft.stageThresholds(0);
 
-            console.log('Initial Experience:', initialAttrs.experience.toString());
-            console.log('First Stage Threshold:', firstStageThreshold.toString());
-
             // Ensure the initial experience is less than the first stage threshold
             expect(initialAttrs.experience).to.be.lt(firstStageThreshold);
 
