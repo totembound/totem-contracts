@@ -15,23 +15,14 @@ error AchievementIsDisabled();
 error RequirementNotMet();
 error UnauthorizedContract();
 error InvalidAchievementType();
+error NoMilestonesConfigured();
 
 contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITotemAchievements {
-
-    struct AchievementView {
-        string name;
-        string description;
-        string iconUri;
-        uint256 requirement;
-        AchievementType achievementType;
-        bytes32 subType;        // e.g., "feed" for Action type
-        bool enabled;
-    }
-
     // State variables
     mapping(bytes32 => Achievement) private achievements;
     mapping(address => mapping(bytes32 => bool)) public userAchievements;
     mapping(address => mapping(bytes32 => AchievementProgress)) private userProgress;
+    mapping(address => mapping(bytes32 => mapping(uint256 => bool))) private userMilestones;
     mapping(address => bool) public authorizedContracts;
     bytes32[] private achievementIds;
 
@@ -39,15 +30,16 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
     event AchievementConfigured(
         bytes32 indexed id, 
         string name, 
-        uint256 requirement,
+        AchievementCategory category,
         AchievementType achievementType,
         bytes32 subType
     );
-    event AchievementUnlocked(bytes32 indexed id, address indexed user);
+    event AchievementUnlocked(bytes32 indexed id, address indexed user, string badgeUri);
     event AchievementEnabled(bytes32 indexed id);
     event AchievementDisabled(bytes32 indexed id);
-    event MetadataSet(bytes32 indexed id, string key, string value);
+    event MilestoneUnlocked(bytes32 indexed id, uint256 indexed milestone, address indexed user, string badgeUri);
     event ProgressUpdated(bytes32 indexed id, address indexed user, uint256 count);
+    event MetadataSet(bytes32 indexed id, string key, string value);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -59,134 +51,123 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         __UUPSUpgradeable_init();
     }
 
-    function _configureAchievement(
-        string memory idString,
-        string memory name,
-        string memory description,
-        string memory iconUri,
-        uint256 requirement,
-        AchievementType achievementType,
-        bytes32 subType
-    ) internal {
-        bytes32 id = keccak256(bytes(idString));
-        if (requirement == 0) revert InvalidRequirement();
-
+    function _configureAchievement(AchievementConfig memory config) internal {
+        bytes32 id = keccak256(bytes(config.idString));
         Achievement storage achievement = achievements[id];
-        achievement.name = name;
-        achievement.description = description;
-        achievement.iconUri = iconUri;
-        achievement.requirement = requirement;
-         achievement.achievementType = achievementType;
-        achievement.subType = subType;
+
+        // Basic setup
+        achievement.name = config.name;
+        achievement.description = config.description;
         achievement.enabled = true;
+        achievement.category = config.category;
+        achievement.achievementType = config.achievementType;
+        achievement.subType = config.subType;
 
-        // Add to tracked achievements if new
-        bool isNew = true;
-        for (uint i = 0; i < achievementIds.length; i++) {
-            if (achievementIds[i] == id) {
-                isNew = false;
-                break;
-            }
+        // Handle achievement type specific setup
+        if (config.achievementType == AchievementType.OneTime) {
+            achievement.badgeUri = config.badgeUri;
         }
-        if (isNew) {
-            achievementIds.push(id);
+        else {
+            if (config.milestones.length == 0) revert NoMilestonesConfigured();
+            delete achievement.milestones;
+            _setMilestones(achievement, config.milestones);
         }
+        
+         _addToTrackedAchievements(id);
 
-        emit AchievementConfigured(id, name, requirement, achievementType, subType);
+        emit AchievementConfigured(
+            id,
+            config.name,
+            config.category,
+            config.achievementType,
+            config.subType
+        );
     }
 
-    function configureAchievement(
-        string calldata idString,
-        string calldata name,
-        string calldata description,
-        string calldata iconUri,
-        uint256 requirement,
-        AchievementType achievementType,
-        bytes32 subType
-    ) external onlyOwner {
-        _configureAchievement(idString, name, description, iconUri, requirement, achievementType, subType);
+    function configureAchievement(AchievementConfig memory config) external onlyOwner {
+        _configureAchievement(config);
+    }
+
+    function _setMilestones(Achievement storage achievement, Milestone[] memory milestones) internal {
+        for (uint256 i = 0; i < milestones.length; i++) {
+            achievement.milestones.push(milestones[i]);
+        }
+    }
+
+    // Split out achievement tracking logic
+    function _addToTrackedAchievements(bytes32 id) internal {
+        for (uint i = 0; i < achievementIds.length; i++) {
+            if (achievementIds[i] == id) return;
+        }
+        achievementIds.push(id);
     }
 
     // For direct unlocks (like evolution achievements)
-    function unlockAchievement(bytes32 achievementId, address user, uint256 value) external {
+    function unlockAchievement(bytes32 id, address user) external {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
 
-        Achievement storage achievement = achievements[achievementId];
-        if (achievement.requirement == 0) revert AchievementNotFound();
+
+        Achievement storage achievement = achievements[id];
         if (!achievement.enabled) revert AchievementIsDisabled();
-        if (value < achievement.requirement) revert RequirementNotMet();
+        if (achievement.achievementType != AchievementType.OneTime) 
+            revert InvalidAchievementType();
+        
+        // If already achieved, silently return
+        if (userAchievements[user][id]) return;
 
-        // Update progress
-        AchievementProgress storage progress = userProgress[user][achievementId];
-        progress.count = value;
-        progress.lastUpdate = block.timestamp;
+        // Get or initialize progress
+        AchievementProgress storage progress = userProgress[user][id];
+        if (progress.startTime == 0) {
+            progress.startTime = block.timestamp;
+        }
+        
+        // Mark as achieved
         progress.achieved = true;
+        progress.lastUpdate = block.timestamp;
+        userAchievements[user][id] = true;
 
-        userAchievements[user][achievementId] = true;
-        emit AchievementUnlocked(achievementId, user);
+        emit AchievementUnlocked(id, user, achievement.badgeUri);
     }
 
     // For progress-based achievements (like action counts)
-    function updateProgress(
-        bytes32 achievementId, 
-        address user, 
-        uint256 value
-    ) external {
+    function updateProgress(bytes32 id, address user, uint256 value) external {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
+        if (!achievements[id].enabled) revert AchievementIsDisabled();
         
-        Achievement storage achievement = achievements[achievementId];
-        if (achievement.requirement == 0) revert AchievementNotFound();
-        if (!achievement.enabled) revert AchievementIsDisabled();
+        Achievement storage achievement = achievements[id];
+        if (achievement.achievementType != AchievementType.Progression)
+            revert InvalidAchievementType();
 
-        AchievementProgress storage progress = userProgress[user][achievementId];
-        progress.count = value;
+        // Get or initialize progress
+        AchievementProgress storage progress = userProgress[user][id];
+        if (progress.startTime == 0) {
+            progress.startTime = block.timestamp;
+        }
+        
+        // add to count
+        progress.count += value;
         progress.lastUpdate = block.timestamp;
 
-        if (value >= achievement.requirement && !progress.achieved) {
-            progress.achieved = true;
-            userAchievements[user][achievementId] = true;
-            emit AchievementUnlocked(achievementId, user);
+        // Check milestones
+        for (uint256 i = 0; i < achievement.milestones.length; i++) {
+            if (progress.count >= achievement.milestones[i].requirement && 
+                !userMilestones[user][id][i]) {
+                userMilestones[user][id][i] = true;
+                emit MilestoneUnlocked(
+                    id, 
+                    i, 
+                    user, 
+                    achievement.milestones[i].badgeUri
+                );
+            }
         }
 
-        emit ProgressUpdated(achievementId, user, value);
-    }
-
-    function authorize(address contractAddress) external onlyOwner {
-        authorizedContracts[contractAddress] = true;
-    }
-
-    function setMetadataAttribute(
-        bytes32 achievementId,
-        string calldata key,
-        string calldata value
-    ) external onlyOwner {
-        Achievement storage achievement = achievements[achievementId];
-        if (achievement.requirement == 0) revert AchievementNotFound();
-        if (bytes(key).length == 0) revert InvalidMetadataKey();
-        if (bytes(value).length == 0) revert InvalidMetadataValue();
-
-        achievement.metadata[key] = value;
-        emit MetadataSet(achievementId, key, value);
+        emit ProgressUpdated(id, user, value);
     }
 
     // View functions
     function getAchievementIds() external view returns (bytes32[] memory) {
         return achievementIds;
-    }
-
-    function getAchievement(bytes32 id) external view returns (AchievementView memory) {
-        Achievement storage achievement = achievements[id];
-        if (achievement.requirement == 0) revert AchievementNotFound();
-
-        return AchievementView({
-            name: achievement.name,
-            description: achievement.description,
-            iconUri: achievement.iconUri,
-            requirement: achievement.requirement,
-            achievementType: achievement.achievementType,
-            subType: achievement.subType,
-            enabled: achievement.enabled
-        });
     }
 
     function getProgress(
@@ -196,12 +177,213 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         return userProgress[user][achievementId];
     }
 
+    function getAchievement(bytes32 id) external view returns (
+        string memory name,
+        string memory description,
+        AchievementCategory category,
+        AchievementType achievementType,
+        string memory badgeUri,
+        bytes32 subType,
+        bool enabled,
+        Milestone[] memory milestones
+    ) {
+        Achievement storage achievement = achievements[id];
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
+
+        return (
+            achievement.name,
+            achievement.description,
+            achievement.category,
+            achievement.achievementType,
+            achievement.badgeUri,
+            achievement.subType,
+            achievement.enabled,
+            achievement.milestones
+        );
+    }
+
+    function getAchievementsByCategory(
+        AchievementCategory category,
+        address user
+    ) external view returns (AchievementView[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < achievementIds.length; i++) {
+            if (achievements[achievementIds[i]].category == category) {
+                count++;
+            }
+        }
+
+        AchievementView[] memory views = new AchievementView[](count);
+        uint256 index = 0;
+
+        for (uint256 i = 0; i < achievementIds.length; i++) {
+            bytes32 id = achievementIds[i];
+            Achievement storage achievement = achievements[id];
+            
+            if (achievement.category == category) {
+                AchievementProgress storage progress = userProgress[user][id];
+                
+                views[index] = AchievementView({
+                    id: id,
+                    name: achievement.name,
+                    description: achievement.description,
+                    achievementType: achievement.achievementType,
+                    subType: achievement.subType,
+                    enabled: achievement.enabled,
+                    badgeUri: achievement.badgeUri,
+                    milestones: achievement.milestones,
+                    isCompleted: userAchievements[user][id],
+                    currentCount: progress.count
+                });
+                index++;
+            }
+        }
+        
+        return views;
+    }
+
+    function getUserCategoriesProgress(
+        address user
+    ) external view returns (CategoryProgress[] memory) {
+        CategoryProgress[] memory progress = new CategoryProgress[](4); // Assuming 4 categories
+        
+        for (uint256 cat = 0; cat < 4; cat++) {
+            progress[cat].category = AchievementCategory(cat);
+            
+            for (uint256 i = 0; i < achievementIds.length; i++) {
+                bytes32 id = achievementIds[i];
+                Achievement storage achievement = achievements[id];
+                
+                if (achievement.category == AchievementCategory(cat)) {
+                    progress[cat].totalAchievements++;
+                    
+                    if (achievement.achievementType == AchievementType.OneTime) {
+                        if (userAchievements[user][id]) {
+                            progress[cat].completedAchievements++;
+                        }
+                    }
+                    else {
+                        uint256 totalMilestones = achievement.milestones.length;
+                        progress[cat].totalMilestones += totalMilestones;
+                        
+                        for (uint256 j = 0; j < totalMilestones; j++) {
+                            if (userMilestones[user][id][j]) {
+                                progress[cat].unlockedMilestones++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return progress;
+    }
+
+    function getUserCompletedAchievements(
+        address user
+    ) external view returns (AchievementView[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < achievementIds.length; i++) {
+            bytes32 id = achievementIds[i];
+            if (userAchievements[user][id]) {
+                count++;
+            }
+        }
+
+        AchievementView[] memory completed = new AchievementView[](count);
+        uint256 index = 0;
+
+        for (uint256 i = 0; i < achievementIds.length; i++) {
+            bytes32 id = achievementIds[i];
+            if (userAchievements[user][id]) {
+                Achievement storage achievement = achievements[id];
+                AchievementProgress storage progress = userProgress[user][id];
+                
+                completed[index] = AchievementView({
+                    id: id,
+                    name: achievement.name,
+                    description: achievement.description,
+                    achievementType: achievement.achievementType,
+                    subType: achievement.subType,
+                    enabled: achievement.enabled,
+                    badgeUri: achievement.badgeUri,
+                    milestones: achievement.milestones,
+                    isCompleted: true,
+                    currentCount: progress.count
+                });
+                index++;
+            }
+        }
+        
+        return completed;
+    }
+
+    function getAchievementProgress(
+        bytes32 id,
+        address user
+    ) external view returns (
+        bool isCompleted,
+        uint256 currentCount,
+        bool[] memory unlockedMilestones
+    ) {
+        Achievement storage achievement = achievements[id];
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
+
+        AchievementProgress storage progress = userProgress[user][id];
+        
+        if (achievement.achievementType == AchievementType.OneTime) {
+            return (userAchievements[user][id], 0, new bool[](0));
+        }
+        else {
+            bool[] memory milestoneStatus = new bool[](achievement.milestones.length);
+            for (uint256 i = 0; i < achievement.milestones.length; i++) {
+                milestoneStatus[i] = userMilestones[user][id][i];
+            }
+            return (false, progress.count, milestoneStatus);
+        }
+    }
+
+    function getDetailedProgress(
+        bytes32 id, 
+        address user
+    ) external view returns (DetailedProgress memory) {
+        Achievement storage achievement = achievements[id];
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
+
+        AchievementProgress storage progress = userProgress[user][id];
+        
+        bool[] memory milestoneStatus;
+        if (achievement.achievementType == AchievementType.Progression) {
+            milestoneStatus = new bool[](achievement.milestones.length);
+            for (uint256 i = 0; i < achievement.milestones.length; i++) {
+                milestoneStatus[i] = userMilestones[user][id][i];
+            }
+        }
+        else {
+            milestoneStatus = new bool[](0);
+        }
+
+        return DetailedProgress({
+            startTime: progress.startTime,
+            lastUpdate: progress.lastUpdate,
+            count: progress.count,
+            achieved: userAchievements[user][id],
+            unlockedMilestones: milestoneStatus
+        });
+    }
+
     function getMetadataAttribute(
-        bytes32 achievementId,
+        bytes32 id,
         string calldata key
     ) external view returns (string memory) {
-        Achievement storage achievement = achievements[achievementId];
-        if (achievement.requirement == 0) revert AchievementNotFound();
+        Achievement storage achievement = achievements[id];
+        
+        // Check if achievement exists by verifying if name is set
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
+        
+        // Validate key
+        if (bytes(key).length == 0) revert InvalidMetadataKey();
+        
         return achievement.metadata[key];
     }
 
@@ -209,31 +391,40 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         return userAchievements[user][achievementId];
     }
 
-    function getHighestStageUnlocked(address user) external view returns (uint256) {
-        uint256 highestStage = 0;
-        for (uint i = 0; i < achievementIds.length; i++) {
-            bytes32 id = achievementIds[i];
-            if (userAchievements[user][id]) {
-                Achievement storage achievement = achievements[id];
-                if (achievement.requirement > highestStage) {
-                    highestStage = achievement.requirement;
-                }
-            }
-        }
-        return highestStage;
+    // Admin functions
+    function authorize(address contractAddress) external onlyOwner {
+        authorizedContracts[contractAddress] = true;
     }
 
-    // Admin functions
+    function setMetadataAttribute(
+        bytes32 id,
+        string calldata key,
+        string calldata value
+    ) external onlyOwner {
+        Achievement storage achievement = achievements[id];
+        
+        // Check if achievement exists by verifying if name is set
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
+        
+        // Validate inputs
+        if (bytes(key).length == 0) revert InvalidMetadataKey();
+        if (bytes(value).length == 0) revert InvalidMetadataValue();
+
+        // Set metadata and emit event
+        achievement.metadata[key] = value;
+        emit MetadataSet(id, key, value);
+    }
+
     function enableAchievement(bytes32 id) external onlyOwner {
         Achievement storage achievement = achievements[id];
-        if (achievement.requirement == 0) revert AchievementNotFound();
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
         achievement.enabled = true;
         emit AchievementEnabled(id);
     }
 
     function disableAchievement(bytes32 id) external onlyOwner {
         Achievement storage achievement = achievements[id];
-        if (achievement.requirement == 0) revert AchievementNotFound();
+        if (bytes(achievement.name).length == 0) revert AchievementNotFound();
         achievement.enabled = false;
         emit AchievementDisabled(id);
     }

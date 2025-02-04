@@ -106,6 +106,16 @@ contract TotemNFT is
     event TotemUnstaked(uint256 indexed tokenId);
     event MetadataURISet(Species species, Color color, uint256 stage, string uri);
 
+    // Constants
+    bytes32 private constant COLLECTOR_ACHIEVEMENT_ID = keccak256("collector_progression");
+    bytes32 private constant EVOLUTION_ACHIEVEMENT_ID = keccak256("evolution_progression");
+    bytes32 private constant RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
+    bytes32 private constant EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
+    bytes32 private constant LEGENDARY_COLLECTOR_ACHIEVEMENT_ID = keccak256("legendary_collector");
+    bytes32 private constant RARE_EVOLUTION_ACHIEVEMENT_ID = keccak256("rare_evolution");
+    bytes32 private constant EPIC_EVOLUTION_ACHIEVEMENT_ID = keccak256("epic_evolution");
+    bytes32 private constant LEGENDARY_EVOLUTION_ACHIEVEMENT_ID = keccak256("legendary_evolution");
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -152,14 +162,31 @@ contract TotemNFT is
         });
 
         _safeMint(to, tokenId);
+
+        // Check for achievements
+        if (address(achievements) != address(0)) {
+            achievements.updateProgress(COLLECTOR_ACHIEVEMENT_ID, to, 1);
+
+            if (rarity == uint8(Rarity.Rare)) {
+                achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+            else if (rarity == uint8(Rarity.Epic)) {
+                achievements.unlockAchievement(EPIC_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+            else if (rarity == uint8(Rarity.Legendary)) {
+                achievements.unlockAchievement(LEGENDARY_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+        }
+
         return tokenId;
     }
 
     function evolve(uint256 tokenId) external {
+        address user = msg.sender;
          if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
-         if (_ownerOf(tokenId) != msg.sender && 
-            !isApprovedForAll(_ownerOf(tokenId), msg.sender) && 
-            getApproved(tokenId) != msg.sender) revert NotAuthorizedForToken();
+         if (_ownerOf(tokenId) != user && 
+            !isApprovedForAll(_ownerOf(tokenId), user) && 
+            getApproved(tokenId) != user) revert NotAuthorizedForToken();
 
         TotemAttributes storage totem = attributes[tokenId];
         if (totem.stage >= 4) revert MaxStageReached();
@@ -171,14 +198,23 @@ contract TotemNFT is
         
         // Verify the metadata URI exists for the new stage
         if (bytes(_metadataURIs[totem.species][totem.color][totem.stage]).length == 0) {
-           revert EvolutionMetadataNotSet();
+            revert EvolutionMetadataNotSet();
         }
 
-        // Achievement unlock for evolution stage
         if (address(achievements) != address(0)) {
-            bytes32 achievementId = keccak256(abi.encodePacked("stage_", Strings.toString(totem.stage)));
-            if (!achievements.hasAchievement(achievementId, msg.sender)) {
-                achievements.unlockAchievement(achievementId, msg.sender, totem.stage);
+            // Progress on evolution stages
+            achievements.updateProgress(EVOLUTION_ACHIEVEMENT_ID, user, totem.stage);
+
+            if (totem.stage == 4) {
+                if (totem.rarity == Rarity.Rare) {
+                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                }
+                else if (totem.rarity == Rarity.Epic) {
+                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                }
+                else if (totem.rarity == Rarity.Legendary) {
+                    achievements.unlockAchievement(RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                }
             }
         }
 

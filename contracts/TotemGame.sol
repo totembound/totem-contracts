@@ -97,6 +97,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // Constants
     uint256 public constant SECONDS_PER_DAY = 86400;
+    bytes32 private constant FEED_ACHIEVEMENT_ID = keccak256("feed_progression");
+    bytes32 private constant TREAT_ACHIEVEMENT_ID = keccak256("treat_progression");
+    bytes32 private constant TRAIN_ACHIEVEMENT_ID = keccak256("train_progression");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -256,10 +259,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // update achievements progression
         if (address(achievements) != address(0)) {
             if (actionType == ActionType.Feed) {
-                bytes32 achievementId = keccak256("caring_keeper");
-                ITotemAchievements.AchievementProgress memory progress = achievements.getProgress(achievementId, user);
-                uint256 totalFeeds = progress.count + 1;
-                achievements.updateProgress(achievementId, user, totalFeeds);
+                achievements.updateProgress(FEED_ACHIEVEMENT_ID, user, 1);
+            }
+            else if (actionType == ActionType.Treat) {
+                achievements.updateProgress(TREAT_ACHIEVEMENT_ID, user, 1);
+            }
+            else if (actionType == ActionType.Train) {
+                achievements.updateProgress(TRAIN_ACHIEVEMENT_ID, user, 1);
             }
         }
 
