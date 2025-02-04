@@ -10,68 +10,83 @@ describe("TotemAchievements", function () {
     const feedAchievementId = ethers.id("feed_achievement");
     const trainAchievementId = ethers.id("train_achievement");
 
-    // Enum for Achievement Type
+    const AchievementCategory = {
+        Evolution: 0,      // Stage based
+        Collection: 1,     // NFT ownership based
+        Streak: 2,         // Time consistency based
+        Action: 3          // Game action based
+    };
+
     const AchievementType = {
-        EVOLUTION: 0,
-        COLLECTION: 1,
-        STREAK: 2,
-        ACTION: 3
+        OneTime: 0,        // Single unlock with badge
+        Progression: 1     // Multiple milestones with badges
     };
 
     const achievementConfigs = [
         {
-            id: "stage_1",
-            name: "Novice Evolution",
-            description: "Evolve a totem to stage 1",
-            iconUri: "ipfs://stage1-icon",
-            requirement: 1,
-            achievementType: AchievementType.EVOLUTION,
-            subType: ethers.id("evolution_stage")
+            id: "rare_evolution",
+            name: "Rare Elder Evolution",
+            description: "Evolve a Rare totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/rare",
+            subType: ethers.id("rarity_evolution"),
+            milestones: []
         },
         {
-            id: "stage_4",
-            name: "Elder Evolution",
-            description: "Evolve a totem to stage 4 - Unlocks Legendary rarity",
-            iconUri: "ipfs://stage4-icon",
-            requirement: 4,
-            achievementType: AchievementType.EVOLUTION,
-            subType: ethers.id("evolution_stage")
+            id: "epic_evolution",
+            name: "Epic Elder Evolution",
+            description: "Evolve an Epic totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/epic",
+            subType: ethers.id("rarity_evolution"),
+            milestones: []
         },
         {
-            id: "first_totem",
-            name: "First Totem",
-            description: "Mint your first NFT",
-            iconUri: "ipfs://collection/first",
-            requirement: 1,
-            achievementType: AchievementType.COLLECTION,
-            subType: ethers.id("mint_count")
+            id: "legendary_evolution",
+            name: "Legendary Elder Evolution",
+            description: "Evolve a Legendary totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/legendary",
+            subType: ethers.id("rarity_evolution"),
+            milestones: []
         },
         {
-            id: "rare_collector",
-            name: "Rare Collector",
-            description: "Own any Rare totem",
-            iconUri: "ipfs://collection/rare",
-            requirement: 1,
-            achievementType: AchievementType.COLLECTION,
-            subType: ethers.id("rarity_rare")
-        },
-        {
-            id: "week_warrior",
-            name: "Week Warrior",
-            description: "Maintain a 7-day login streak",
-            iconUri: "ipfs://streak/week",
-            requirement: 7,
-            achievementType: AchievementType.STREAK,
-            subType: ethers.id("daily_login")
-        },
-        {
-            id: "caring_keeper",
-            name: "Caring Keeper",
-            description: "Feed your totem 100 times",
-            iconUri: "ipfs://action/feed",
-            requirement: 100,
-            achievementType: AchievementType.ACTION,
-            subType: ethers.id("feed_count")
+            id: "evolution_progression",
+            name: "Evolution Mastery",
+            description: "Master the art of evolving your Totem through different stages",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.Progression,
+            badgeUri: "",
+            subType: ethers.id("evolution"),
+            milestones: [
+                {
+                    name: "First Evolution",
+                    description: "Evolve your first totem to stage 1",
+                    badgeUri: "ipfs://badge/evolution/stage1",
+                    requirement: 1
+                },
+                {
+                    name: "Adept Evolution",
+                    description: "Evolve a totem to stage 2",
+                    badgeUri: "ipfs://badge/evolution/stage2",
+                    requirement: 2
+                },
+                {
+                    name: "Master Evolution",
+                    description: "Evolve a totem to stage 3 - Unlocks Epic rarity",
+                    badgeUri: "ipfs://badge/evolution/stage3",
+                    requirement: 3
+                },
+                {
+                    name: "Elder Evolution",
+                    description: "Evolve a totem to stage 4 - Unlocks Legendary rarity",
+                    badgeUri: "ipfs://badge/evolution/stage4",
+                    requirement: 4
+                }
+            ]
         }
     ];
 
@@ -136,15 +151,18 @@ describe("TotemAchievements", function () {
         it("Should configure all predefined achievements", async function () {
             // Configure all achievements
             for (const config of achievementConfigs) {
-                await achievements.configureAchievement(
-                    config.id,
-                    config.name,
-                    config.description,
-                    config.iconUri,
-                    config.requirement,
-                    config.achievementType,
-                    config.subType
-                );
+                const achievementConfig = {
+                    idString: config.id,
+                    name: config.name,
+                    description: config.description,
+                    category: config.category,
+                    achievementType: config.type,
+                    badgeUri: config.badgeUri,
+                    subType: config.subType,
+                    milestones: config.milestones
+                };
+            
+                await achievements.configureAchievement(achievementConfig);
             }
 
             // Verify achievements were configured correctly
@@ -152,49 +170,71 @@ describe("TotemAchievements", function () {
             expect(achievementIds.length).to.equal(achievementConfigs.length);
 
             // Check specific achievements
-            const stageOneAchievement = await achievements.getAchievement(ethers.id("stage_1"));
-            expect(stageOneAchievement.name).to.equal("Novice Evolution");
-            expect(stageOneAchievement.requirement).to.equal(1n);
+            const stageOneAchievement = await achievements.getAchievement(ethers.id("rare_evolution"));
+            expect(stageOneAchievement.name).to.equal("Rare Elder Evolution");
+            //expect(stageOneAchievement.requirement).to.equal(1n);
 
-            const caringKeeperAchievement = await achievements.getAchievement(ethers.id("caring_keeper"));
-            expect(caringKeeperAchievement.name).to.equal("Caring Keeper");
-            expect(caringKeeperAchievement.requirement).to.equal(100n);
+            const caringKeeperAchievement = await achievements.getAchievement(ethers.id("evolution_progression"));
+            expect(caringKeeperAchievement.name).to.equal("Evolution Mastery");
+            //expect(caringKeeperAchievement.requirement).to.equal(100n);
         });
+
 
         it("Should support different achievement types", async function () {
             const configTests = [
                 { 
                     id: "stage_1", 
-                    type: AchievementType.EVOLUTION, 
-                    expectedSubType: ethers.id("evolution_stage") 
+                    type: AchievementType.OneTime, 
+                    category: AchievementCategory.Evolution,
+                    expectedSubType: ethers.id("evolution_stage"),
+                    milestones: []
                 },
                 { 
                     id: "first_totem", 
-                    type: AchievementType.COLLECTION, 
-                    expectedSubType: ethers.id("mint_count") 
+                    type: AchievementType.OneTime, 
+                    category: AchievementCategory.Collection,
+                    expectedSubType: ethers.id("mint_count"),
+                    milestones: []
                 },
                 { 
                     id: "week_warrior", 
-                    type: AchievementType.STREAK, 
-                    expectedSubType: ethers.id("daily_login") 
+                    type: AchievementType.Progression, 
+                    category: AchievementCategory.Streak,
+                    expectedSubType: ethers.id("daily_login"),
+                    milestones: [{
+                        name: "First Evolution",
+                        description: "Evolve your first totem to stage 1",
+                        badgeUri: "ipfs://badge/evolution/stage1",
+                        requirement: 1
+                    }]
                 },
                 { 
                     id: "caring_keeper", 
-                    type: AchievementType.ACTION, 
-                    expectedSubType: ethers.id("feed_count") 
+                    type: AchievementType.Progression, 
+                    category: AchievementCategory.Action,
+                    expectedSubType: ethers.id("feed_count"),
+                    milestones: [{
+                        name: "First Evolution",
+                        description: "Evolve your first totem to stage 1",
+                        badgeUri: "ipfs://badge/evolution/stage1",
+                        requirement: 1
+                    }]
                 }
             ];
 
             for (const test of configTests) {
-                await achievements.configureAchievement(
-                    test.id,
-                    `Test ${test.id}`,
-                    "Test description",
-                    "ipfs://test-icon",
-                    10,
-                    test.type,
-                    test.expectedSubType
-                );
+                const achievementConfig = {
+                    idString: test.id,
+                    name: `Test ${test.id}`,
+                    description: "Test description",
+                    category: test.category,
+                    achievementType: test.type,
+                    badgeUri: "ipfs://badge",
+                    subType: test.expectedSubType,
+                    milestones: test.milestones
+                };
+
+                await achievements.configureAchievement(achievementConfig);
 
                 const achievement = await achievements.getAchievement(ethers.id(test.id));
                 expect(achievement.achievementType).to.equal(test.type);
@@ -206,15 +246,21 @@ describe("TotemAchievements", function () {
     describe("Achievement Progress Tracking", function () {
         beforeEach(async function () {
             // Configure feed achievement
-            await achievements.configureAchievement(
-                "feed_achievement",
-                "Feeding Master",
-                "Feed your totem 10 times",
-                "ipfs://feed-icon",
-                10,
-                AchievementType.ACTION,
-                ethers.encodeBytes32String("feed")
-            );
+            await achievements.configureAchievement({
+                idString: "feed_achievement",
+                name: "Feeding Master",
+                description: "Feed your totem 10 times",
+                category: AchievementCategory.Action,
+                achievementType: AchievementType.Progression,
+                badgeUri: "ipfs://feed-icon",
+                subType: ethers.id("feed_count"),
+                milestones: [{
+                    name: "Caring Keeper",
+                    description: "Feed your totem 100 times",
+                    badgeUri: "ipfs://action/feed/100",
+                    requirement: 100,
+                }]
+            });
         });
 
         it("Should allow authorized contract to update progress", async function () {
@@ -233,12 +279,12 @@ describe("TotemAchievements", function () {
             await achievements.connect(authorizedContract).updateProgress(
                 feedAchievementId,
                 addr1.address,
-                15
+                100
             );
 
-            const progress = await achievements.getProgress(feedAchievementId, addr1.address);
-            expect(progress.achieved).to.be.true;
-            expect(await achievements.hasAchievement(feedAchievementId, addr1.address)).to.be.true;
+            const progress = await achievements.getAchievementProgress(feedAchievementId, addr1.address);
+            expect(progress[1]).to.equal(100n);
+            expect(progress[2][0]).to.be.true;
         });
 
         it("Should prevent unauthorized contract from updating progress", async function () {
@@ -255,60 +301,71 @@ describe("TotemAchievements", function () {
     describe("Direct Achievement Unlock", function () {
         beforeEach(async function () {
             // Configure an achievement for direct unlock
-            await achievements.configureAchievement(
-                "train_achievement",  // Changed from "evolution_achievement"
-                "Training Champion",
-                "Reach training milestone",
-                "ipfs://train-icon",
-                2,
-                AchievementType.EVOLUTION,
-                ethers.encodeBytes32String("train_stage")
-            );
+            await achievements.configureAchievement({
+                idString: "train_achievement",
+                name: "Training Champion",
+                description: "Reach training milestone",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.OneTime,
+                badgeUri: "ipfs://train-icon",
+                subType: ethers.id("train_strage"),
+                milestones: []
+            });
         });
     
         it("Should allow authorized contract to unlock achievement", async function () {
             await achievements.connect(authorizedContract).unlockAchievement(
-                trainAchievementId,  // Use the pre-defined ID
-                addr1.address,
-                2
+                trainAchievementId,
+                addr1.address
             );
     
             expect(await achievements.hasAchievement(trainAchievementId, addr1.address)).to.be.true;
         });
     
-        it("Should prevent unlock if requirement is not met", async function () {
+        it("Should prevent unauthorized callers from unlocking achievement", async function () {
             await expect(
-                achievements.connect(authorizedContract).unlockAchievement(
+                achievements.connect(addr1).unlockAchievement(
                     trainAchievementId,
-                    addr1.address,
-                    1
+                    addr1.address
                 )
-            ).to.be.revertedWithCustomError(achievements, "RequirementNotMet");
+            ).to.be.revertedWithCustomError(achievements, "UnauthorizedContract");
         });
     });
 
     describe("Achievement Management", function () {
         beforeEach(async function () {
             // Configure multiple achievements
-            await achievements.configureAchievement(
-                "feed_achievement",
-                "Feeding Master",
-                "Feed your totem 10 times",
-                "ipfs://feed-icon",
-                10,
-                AchievementType.ACTION,
-                ethers.encodeBytes32String("feed")
-            );
+            await achievements.configureAchievement({
+                idString: "feed_achievement",
+                name: "Feeding Master",
+                description: "Feed your totem 10 times",
+                category: AchievementCategory.Action,
+                achievementType: AchievementType.Progression,
+                badgeUri: "ipfs://feed-icon",
+                subType: ethers.id("feed"),
+                milestones: [{
+                    name: "First Feed",
+                    description: "Feed milestone",
+                    badgeUri: "ipfs://feed/1",
+                    requirement: 100
+                }]
+            });
 
-            await achievements.configureAchievement(
-                "train_achievement",
-                "Training Champion",
-                "Train your totem 5 times",
-                "ipfs://train-icon",
-                5,
-                AchievementType.ACTION,
-                ethers.encodeBytes32String("train")
-            );
+            await achievements.configureAchievement({
+                idString: "train_achievement",
+                name: "Training Champion",
+                description: "Train your totem 5 times",
+                category: AchievementCategory.Action,
+                achievementType: AchievementType.Progression,
+                badgeUri: "ipfs://train-icon",
+                subType: ethers.id("train"),
+                milestones: [{
+                    name: "First Train",
+                    description: "Train milestone",
+                    badgeUri: "ipfs://train/1",
+                    requirement: 100
+                }]
+            });
         });
 
         it("Should return all achievement IDs", async function () {
@@ -322,12 +379,12 @@ describe("TotemAchievements", function () {
             // Disable achievement
             await achievements.disableAchievement(feedAchievement);
             const disabledAchievement = await achievements.getAchievement(feedAchievement);
-            expect(disabledAchievement.enabled).to.be.false;
+            expect(disabledAchievement[6]).to.be.false; // enabled is the 7th return value
 
             // Enable achievement
             await achievements.enableAchievement(feedAchievement);
             const enabledAchievement = await achievements.getAchievement(feedAchievement);
-            expect(enabledAchievement.enabled).to.be.true;
+            expect(enabledAchievement[6]).to.be.true; // enabled is the 7th return value
         });
 
         it("Should prevent actions on disabled achievements", async function () {
@@ -346,37 +403,85 @@ describe("TotemAchievements", function () {
             ).to.be.revertedWithCustomError(achievements, "AchievementIsDisabled");
         });
 
-        it("Should track highest stage unlocked", async function () {
-            // Simulate unlocking multiple achievements with different requirements
-            await achievements.connect(authorizedContract).unlockAchievement(
-                feedAchievementId,
+        it("Should track progression milestones", async function () {
+            // Configure a progression achievement with multiple milestones
+            await achievements.configureAchievement({
+                idString: "progression_test",
+                name: "Progression Test",
+                description: "Test progression tracking",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.Progression,
+                badgeUri: "",
+                subType: ethers.id("progression"),
+                milestones: [
+                    {
+                        name: "First Milestone",
+                        description: "Reach first milestone",
+                        badgeUri: "ipfs://milestone/1",
+                        requirement: 5
+                    },
+                    {
+                        name: "Second Milestone",
+                        description: "Reach second milestone",
+                        badgeUri: "ipfs://milestone/2",
+                        requirement: 10
+                    },
+                    {
+                        name: "Final Milestone",
+                        description: "Reach final milestone",
+                        badgeUri: "ipfs://milestone/3",
+                        requirement: 15
+                    }
+                ]
+            });
+
+            const achievementId = ethers.id("progression_test");
+
+            // Update progress and check milestones
+            await achievements.connect(authorizedContract).updateProgress(
+                achievementId,
                 addr1.address,
-                15
+                7  // Should unlock first milestone
             );
 
-            await achievements.connect(authorizedContract).unlockAchievement(
-                trainAchievementId,
+            let progress = await achievements.getDetailedProgress(achievementId, addr1.address);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+            expect(progress.unlockedMilestones[1]).to.be.false;
+            expect(progress.unlockedMilestones[2]).to.be.false;
+
+            // Update to reach second milestone
+            await achievements.connect(authorizedContract).updateProgress(
+                achievementId,
                 addr1.address,
-                10
+                5  // Total now 12, should unlock second milestone
             );
 
-            const highestStage = await achievements.getHighestStageUnlocked(addr1.address);
-            expect(highestStage).to.equal(10n);
+            progress = await achievements.getDetailedProgress(achievementId, addr1.address);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+            expect(progress.unlockedMilestones[1]).to.be.true;
+            expect(progress.unlockedMilestones[2]).to.be.false;
+            expect(progress.count).to.equal(12n);
         });
     });
 
     describe("Metadata Management", function () {
         beforeEach(async function () {
             // Configure an achievement
-            await achievements.configureAchievement(
-                "feed_achievement",
-                "Feeding Master",
-                "Feed your totem 10 times",
-                "ipfs://feed-icon",
-                10,
-                AchievementType.ACTION,
-                ethers.encodeBytes32String("feed")
-            );
+            await achievements.configureAchievement({
+                idString: "feed_achievement",
+                name: "Feeding Master",
+                description: "Feed your totem 10 times",
+                category: AchievementCategory.Action,
+                achievementType: AchievementType.Progression,
+                badgeUri: "ipfs://feed-icon",
+                subType: ethers.id("feed"),
+                milestones: [{
+                    name: "First Feed",
+                    description: "Feed milestone",
+                    badgeUri: "ipfs://feed/1",
+                    requirement: 100
+                }]
+            });
         });
 
         it("Should allow setting metadata attributes", async function () {
