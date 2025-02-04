@@ -38,17 +38,17 @@ describe("TotemNFT", function () {
         await nft.setRandomOracle(await randomOracle.getAddress());
 
         await nft.setValidColorsForRarities(
-            [0, 0, 0, 0, 0,  // Common
-             1, 1, 1, 1, 1,  // Uncommon
-             2, 2, 2, 2,     // Rare
-             3, 3, 3,        // Epic
-             4, 4],          // Legendary
+            [0, 0, 0, 0,   // Common
+             1, 1, 1, 1,   // Uncommon
+             2, 2, 2,      // Rare
+             3, 3, 3,      // Epic
+             4, 4],        // Legendary
         
-            [0, 1, 2, 3, 4,  // Common -> Brown, Gray, White, Tawny, Speckled
-             5, 6, 7, 8, 9,  // Uncommon -> Russet, Slate, Copper, Cream, Dappled
-             10, 11, 12, 13, // Rare -> Golden, DarkPurple, LightBlue, Charcoal
-             14, 15, 16,     // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
-             17, 18]         // Legendary -> RadiantGold, EtherealSilver
+            [0, 1, 2, 3,   // Common -> Brown, Gray, White, Tawny
+             4, 5, 6, 7,   // Uncommon -> Slate, Copper, Cream, Dappled
+             8, 9, 10,     // Rare -> Golden, DarkPurple, Charcoal
+             11, 12, 13,   // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
+             14, 15]       // Legendary -> RadiantGold, EtherealSilver
         );
     });
 
@@ -61,10 +61,10 @@ describe("TotemNFT", function () {
         it("Should initialize valid colors for each rarity", async function () {
             // Test a few sample color validations
             expect(await nft.validColorForRarity(0, 0)).to.be.true;  // Common, Brown
-            expect(await nft.validColorForRarity(1, 5)).to.be.true;  // Uncommon, Russet
-            expect(await nft.validColorForRarity(2, 10)).to.be.true; // Rare, Golden
-            expect(await nft.validColorForRarity(3, 14)).to.be.true; // Epic, EmeraldGreen
-            expect(await nft.validColorForRarity(4, 17)).to.be.true; // Legendary, RadiantGold
+            expect(await nft.validColorForRarity(1, 5)).to.be.true;  // Uncommon, Copper
+            expect(await nft.validColorForRarity(2, 8)).to.be.true;  // Rare, Golden
+            expect(await nft.validColorForRarity(3, 12)).to.be.true; // Epic, EmeraldGreen
+            expect(await nft.validColorForRarity(4, 15)).to.be.true; // Legendary, RadiantGold
         });
     });
 
@@ -196,7 +196,7 @@ describe("TotemNFT", function () {
         });
 
         it("Should fail setting metadata with invalid parameters", async function () {
-            await expect(nft.setMetadataURI(0, 19, 0, "hash")) // Invalid color
+            await expect(nft.setMetadataURI(0, 16, 0, "hash")) // Invalid color
                 .to.be.revertedWithCustomError(nft, "InvalidColor");
                 
             await expect(nft.setMetadataURI(0, 0, 5, "hash")) // Invalid stage
