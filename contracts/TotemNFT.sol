@@ -100,7 +100,6 @@ contract TotemNFT is
     
     // Constants
     bytes32 private constant _COLLECTOR_ACHIEVEMENT_ID = keccak256("collector_progression");
-    bytes32 private constant _EVOLUTION_ACHIEVEMENT_ID = keccak256("evolution_progression");
     bytes32 private constant _RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
     bytes32 private constant _EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
     bytes32 private constant _LEGENDARY_COLLECTOR_ACHIEVEMENT_ID = keccak256("legendary_collector");
@@ -203,17 +202,17 @@ contract TotemNFT is
 
         if (address(achievements) != address(0)) {
             // Progress on evolution stages
-            achievements.updateProgress(_EVOLUTION_ACHIEVEMENT_ID, user, totem.stage);
+            achievements.updateEvolutionProgress(user, totem.stage);
 
             if (totem.stage == 4) {
                 if (totem.rarity == Rarity.Rare) {
-                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_RARE_EVOLUTION_ACHIEVEMENT_ID, user);
                 }
                 else if (totem.rarity == Rarity.Epic) {
-                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_EPIC_EVOLUTION_ACHIEVEMENT_ID, user);
                 }
                 else if (totem.rarity == Rarity.Legendary) {
-                    achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, user);
+                    achievements.unlockAchievement(_LEGENDARY_EVOLUTION_ACHIEVEMENT_ID, user);
                 }
             }
         }
