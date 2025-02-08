@@ -37,6 +37,10 @@ async function main() {
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
         11, 11, 11, 11, 11
     ];
     // Color: Brown, Gray, White, Tawny
@@ -44,43 +48,76 @@ async function main() {
         0, 0, 0, 0, 0,
         1, 1, 1, 1, 1,
         2, 2, 2, 2, 2,
-        3, 3, 3, 3, 3
+        3, 3, 3, 3, 3,
+        4, 4, 4, 4, 4,
+        5, 5, 5, 5, 5,
+        6, 6, 6, 6, 6,
+        7, 7, 7, 7, 7
     ];
     // Stages 0 to 4
     const stages:  number[] = [
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
         0, 1, 2, 3, 4
     ];
     const ipfsHashes: string[] = [
+        // Common
         // Owl - Brown
         "bafkreidbvyniutzdrxcs633f2lg7bvhchxzaeznjcvzlntmjylphyrzwku",
-        "bafkreie46bamxkcnayr346bmnkmwt7oenremqeekyeqjrbmg5krglp4qqm",
+        "bafkreifgv2itn6hmfxvybnczvizkl3q2ev7lfl34ucfl7vkawu5kojruvu",
         "bafkreicfw5ukosgsgtl7c7z7764ohahuo4r4uyrvtg5zxaiqfp7slvgk6m",
         "bafkreigbfq3bafyfnzg37jfjfxi2qsex7dfsiajvkwx7554eygjk7f2mje",
         "bafkreih7goltd46ityvqc33du2htn5le6kdru5e7xlmi2ua5h6bwxgb4gu",
-
         // Owl - Gray
         "bafkreigdgbmtlge6cykmrztm7enff6t3lx67hfd2vquytczy3taxw35fg4",
-        "bafkreiaxliadoyowahjytpbb7habphermbcs7nzincydxja3zfmadh3dpm",
+        "bafkreih77badc5su4j65grveesdwoxlronjpdgydtqdvniarzqozrfbm6q",
         "bafkreibmbv53r67cdgqkhf7byxpi7mwd7w33c7oug35flxtoy4rbaqkg64",
         "bafkreigudp67jqzryogpbdexogbqspcj6pqlaczrt7vi4ng45c2wkp47bi",
         "bafkreien3enrlbwbk4essz6rlfclaf4n53bx4u5pxr2toqurdaayxrr5ja",
-
         // Owl - White
         "bafkreigwxa3ssl75b7iptr5fv3h5g66iu2jbjhhztrrzoiunoucbr65pwe",
-        "bafkreicvfhlikmos5muo2eijgpoet7c77um7wl43umdnwu2p6fp6grc5h4",
+        "bafkreicbqkprldg4gm5yhzvxa3v5y5oeo6oegafqekbt2634ox5xssa22q",
         "bafkreidfvrr4jxogbtqa5mewqlfqddqpslqrxj7gnramq2hgqs26y4uldm",
         "bafkreieixnjlmoqhf7q2sgwpmibxfrchfs3slhrocbx5ec7mfkdx5543fi",
         "bafkreibfdbc4k7d7miruij3vihvvbhvyp252tybtw3suovfd5rptfqf2hy",
-
         // Owl - Tawny
         "bafkreicju5dpggeinc23wby4qp2dop2u624z3gx6sig75h2b4q2by6sb2y",
-        "bafkreidzqd2unpb7kuvouc4qwa6hezxuw2yxszuak2b4ax3ujyhh26f6ua",
+        "bafkreiakvhjkgurnefejsnlgkigv6le62b5qu577xowtnntonzb6wox3ea",
         "bafkreifqwavhs372oyfdlkcpyrx72hvfzablobbnwqtc4tj7gn4d3b6df4",
         "bafkreibmke5docnoyqgbufvqsoxmsh7t2ie2vwk6htxctzdxqjnehzbxqy",
         "bafkreihs6efjzafejwldigzj2c7dxl5mhmf2kgwsxjqctfafdbnnwkt27m",
+        // Uncommon
+        // Owl - Slate
+        "bafkreif6akywp2ncav327yldfkbuvycdaa4kahuwwfns5ujef2dc3kwtaq",
+        "bafkreihhugi4d6apfmyg3cphqbcwohjlnli53j6e5jqslqewrcpcbx2v3q",
+        "bafkreifzvul24g65upzj7m7xlzlbtprbjn3i2a3mqvkeawhmhswnlupz64",
+        "bafkreiarbyjojoiu43pusft5kjcuitcmpfgsrwxckjtlmculu4opjzcuyu",
+        "bafkreigne7yhpva6ryatpjmw2sxig7puhxpaeiot2bhjwfkfv3eax4p4tm",
+        // Owl - Copper
+        "bafkreigsaoeu2ufrptfp5opruee6x5lymdl5ft5zalhnmbs4sgiokuztra",
+        "bafkreicrhl457inc5mb2tilnxw27kefgmbi2kuqokd4gwaiyx26kh5lajq",
+        "bafkreighu2qpbs5kozpzrmvchjtiaybwh5f5viwtfk6re4rxhxwbiz7jga",
+        "bafkreibi6avstnbvdqssy2v2ltfkx3euv2xmirqalakeu32y3plx5fn7je",
+        "bafkreiaojgo5ruhycj5x2tqc3yo4gnnxe6ldcisgkgcjwy657tjlnjkm6i",
+        // Owl - Cream
+        "bafkreidh23mgoikw2semtqywatal4gvicexrpwsj5bcccuu5tmszwowt5y",
+        "bafkreiafrsntia2zldmjallotldpx7lj5qmqfcqopdaohro2a34s4pvkqm",
+        "bafkreiaviw37cai6opska4wqyrdfizxf3tjcugljc7czn2mnpdazd53aky",
+        "bafkreiarvipxw2475mvtbchb6x7ytlyjb322zswydpd7iuyjiexqf7ylge",
+        "bafkreibjlwudw652djhn5ikilwj57puqfrqk5jib47ijxlknwmhzd7w2cy",
+        // Owl - Dappled
+        "bafkreiamp4of27u5e3ttc5s3czxv3ut6ybwjb4jc2izeaaua3af5mzzl4a",
+        "bafkreiesvjqlgtmxz55vzxzpwoc2brvdckzbnmncxnv7iqqijfrb7n3qja",
+        "bafkreigr23bf2hxwj4qqnxmspschgzyk76liggbiud22kpenhuqagbzkxu",
+        "bafkreidfwsgt2ok4hcpmf7tiqmbpms6vcefonm2daksgz66y34wiqtpjo4",
+        "bafkreiesiz2fyujxfgqhqaiitwmotx56cmlzjyj6nghz6rxtnnxixekzhi",
+
+
     ];
 
     // Ensure array lengths match

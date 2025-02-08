@@ -298,6 +298,162 @@ describe("TotemAchievements", function () {
         });
     });
 
+    describe("Evolution Progress Tracking", function () {
+        const evolutionProgressId = ethers.id("evolution_progression");
+        
+        beforeEach(async function () {
+            // Configure evolution progression achievement
+            await achievements.configureAchievement({
+                idString: "evolution_progression",
+                name: "Evolution Mastery",
+                description: "Master the art of evolving your Totem through different stages",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.Progression,
+                badgeUri: "",
+                subType: ethers.id("evolution"),
+                milestones: [
+                    {
+                        name: "First Evolution",
+                        description: "Evolve your first totem to stage 1",
+                        badgeUri: "ipfs://badge/evolution/stage1",
+                        requirement: 1
+                    },
+                    {
+                        name: "Adept Evolution",
+                        description: "Evolve a totem to stage 2",
+                        badgeUri: "ipfs://badge/evolution/stage2",
+                        requirement: 2
+                    },
+                    {
+                        name: "Master Evolution",
+                        description: "Evolve a totem to stage 3",
+                        badgeUri: "ipfs://badge/evolution/stage3",
+                        requirement: 3
+                    },
+                    {
+                        name: "Elder Evolution",
+                        description: "Evolve a totem to stage 4",
+                        badgeUri: "ipfs://badge/evolution/stage4",
+                        requirement: 4
+                    }
+                ]
+            });
+        });
+    
+        it("Should increment progress only on first time reaching each stage", async function () {
+            // First totem reaches stage 1
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            let progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(1n);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+            expect(progress.unlockedMilestones[1]).to.be.false;
+    
+            // Second totem reaches stage 1 - should not increment
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(1n); // Still 1
+            expect(progress.unlockedMilestones[0]).to.be.true;
+    
+            // First totem reaches stage 2
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(2n);
+            expect(progress.unlockedMilestones[1]).to.be.true;
+    
+            // Another totem reaches stage 2 - should not increment
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(2n); // Still 2
+        });
+    
+        it("Should track progression all the way to Elder stage", async function () {
+            // Progress through all stages
+            for (let stage = 1; stage <= 4; stage++) {
+                await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, stage);
+                const progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+                expect(progress.count).to.equal(BigInt(stage));
+                
+                // Check all milestones up to current stage are unlocked
+                for (let i = 0; i < stage; i++) {
+                    expect(progress.unlockedMilestones[i]).to.be.true;
+                }
+                // Check remaining milestones are still locked
+                for (let i = stage; i < 4; i++) {
+                    expect(progress.unlockedMilestones[i]).to.be.false;
+                }
+            }
+        });
+    
+        it("Should prevent unauthorized contracts from updating evolution progress", async function () {
+            await expect(
+                achievements.connect(addr1).updateEvolutionProgress(addr1.address, 1)
+            ).to.be.revertedWithCustomError(achievements, "UnauthorizedContract");
+        });
+    
+        it("Should require achievement to be enabled", async function () {
+            // Disable the achievement
+            await achievements.disableAchievement(evolutionProgressId);
+    
+            await expect(
+                achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1)
+            ).to.be.revertedWithCustomError(achievements, "AchievementIsDisabled");
+        });
+    
+        it("Should handle stage progression correctly", async function () {
+            // Reach stage 1
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            let progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(1n);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+        
+            // Reach stage 2
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(2n);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+            expect(progress.unlockedMilestones[1]).to.be.true;
+        
+            // Reach stage 3
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 3);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(3n);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+            expect(progress.unlockedMilestones[1]).to.be.true;
+            expect(progress.unlockedMilestones[2]).to.be.true;
+        });
+        
+        it("Should handle multiple totems reaching same stage", async function () {
+            // First totem reaches stage 1
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            let progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(1n);
+            expect(progress.unlockedMilestones[0]).to.be.true;
+        
+            // Second totem reaches stage 1 - should not increment
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            progress = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress.count).to.equal(1n); // Still 1
+            expect(progress.unlockedMilestones[0]).to.be.true;
+        });
+        
+        it("Should track stage progress separately for different users", async function () {
+            // First user progresses through stages sequentially (as required by game)
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            let progress1 = await achievements.getDetailedProgress(evolutionProgressId, addr1.address);
+            expect(progress1.count).to.equal(2n);
+            expect(progress1.unlockedMilestones[0]).to.be.true; // Stage 1 unlocked
+            expect(progress1.unlockedMilestones[1]).to.be.true; // Stage 2 unlocked
+        
+            // Second user reaches stage 1
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr2.address, 1);
+            let progress2 = await achievements.getDetailedProgress(evolutionProgressId, addr2.address);
+            expect(progress2.count).to.equal(1n);
+            expect(progress2.unlockedMilestones[0]).to.be.true;
+            expect(progress2.unlockedMilestones[1]).to.be.false;
+        });
+    });
+
     describe("Direct Achievement Unlock", function () {
         beforeEach(async function () {
             // Configure an achievement for direct unlock

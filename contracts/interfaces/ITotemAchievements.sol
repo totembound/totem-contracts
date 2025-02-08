@@ -84,6 +84,7 @@ interface ITotemAchievements {
     // Core functions
     function unlockAchievement(bytes32 id, address user) external;
     function updateProgress(bytes32 id, address user, uint256 value) external;
+    function updateEvolutionProgress(address user, uint256 stage) external;
 
     // View functions
     function hasAchievement(bytes32 id, address user) external view returns (bool);

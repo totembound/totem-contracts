@@ -22,26 +22,26 @@ library RandomnessHelper {
         
         if (rarity == 4) {           // Legendary: 2 colors
             rand = randomWord % 2;
-            return uint8(17 + rand);  // RadiantGold or EtherealSilver
+            return uint8(14 + rand);  // RadiantGold (14), EtherealSilver (15)
         }
         
         if (rarity == 3) {           // Epic: 3 colors
             rand = randomWord % 3;
-            return uint8(14 + rand);  // EmeraldGreen, CrimsonRed, or DeepSapphire
+            return uint8(11 + rand);  // EmeraldGreen (11), CrimsonRed (12), DeepSapphire (13)
         }
         
         if (rarity == 2) {           // Rare: 3 colors
             rand = randomWord % 3;
-            return uint8(10 + rand);  // Golden, DarkPurple, or Charcoal
+            return uint8(8 + rand);   // Golden (8), DarkPurple (9), Charcoal (10)
         }
         
         if (rarity == 1) {           // Uncommon: 4 colors
             rand = randomWord % 4;
-            return uint8(5 + rand);   //  Slate, Copper, Cream, or Dappled
+            return uint8(4 + rand);   // Slate (4), Copper (5), Cream (6), Dappled (7)
         }
         
                                       // Common: 4 colors
         rand = randomWord % 4;
-        return uint8(rand);           // Brown, Gray, White, or Tawny
+        return uint8(rand);           // Brown (0), Gray (1), White (2), Tawny (3)
     }
 }

@@ -23,8 +23,11 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
     mapping(address => mapping(bytes32 => bool)) public userAchievements;
     mapping(address => mapping(bytes32 => AchievementProgress)) private _userProgress;
     mapping(address => mapping(bytes32 => mapping(uint256 => bool))) private _userMilestones;
+    mapping(address => mapping(uint256 => bool)) private _userReachedStage;
     mapping(address => bool) public authorizedContracts;
     bytes32[] private _achievementIds;
+
+    bytes32 private constant _EVOLUTION_ACHIEVEMENT_ID = keccak256("evolution_progression");
 
     // Events
     event AchievementConfigured(
@@ -59,7 +62,6 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
     function unlockAchievement(bytes32 id, address user) external {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
 
-
         Achievement storage achievement = _achievements[id];
         if (!achievement.enabled) revert AchievementIsDisabled();
         if (achievement.achievementType != AchievementType.OneTime) 
@@ -85,37 +87,24 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
     // For progress-based achievements (like action counts)
     function updateProgress(bytes32 id, address user, uint256 value) external {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
-        if (!_achievements[id].enabled) revert AchievementIsDisabled();
-        
-        Achievement storage achievement = _achievements[id];
+        _updateProgress(id, user, value);
+    }
+
+    function updateEvolutionProgress(address user, uint256 stage) external {
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
+
+        Achievement storage achievement = _achievements[_EVOLUTION_ACHIEVEMENT_ID];
+        if (!_achievements[_EVOLUTION_ACHIEVEMENT_ID].enabled) revert AchievementIsDisabled();
+
         if (achievement.achievementType != AchievementType.Progression)
             revert InvalidAchievementType();
 
-        // Get or initialize progress
-        AchievementProgress storage progress = _userProgress[user][id];
-        if (progress.startTime == 0) {
-            progress.startTime = block.timestamp;
+        // Check if this stage hasn't been reached before
+        if (!_userReachedStage[user][stage]) {
+            _userReachedStage[user][stage] = true;
+            // Update progress for milestone requirements
+            _updateProgress(_EVOLUTION_ACHIEVEMENT_ID, user, 1);
         }
-        
-        // add to count
-        progress.count += value;
-        progress.lastUpdate = block.timestamp;
-
-        // Check milestones
-        for (uint256 i = 0; i < achievement.milestones.length; i++) {
-            if (progress.count >= achievement.milestones[i].requirement && 
-                !_userMilestones[user][id][i]) {
-                _userMilestones[user][id][i] = true;
-                emit MilestoneUnlocked(
-                    id, 
-                    i, 
-                    user, 
-                    achievement.milestones[i].badgeUri
-                );
-            }
-        }
-
-        emit ProgressUpdated(id, user, value);
     }
 
     // Admin functions
@@ -380,6 +369,40 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
 
     function hasAchievement(bytes32 achievementId, address user) external view returns (bool) {
         return userAchievements[user][achievementId];
+    }
+
+    function _updateProgress(bytes32 id, address user, uint256 value) internal {
+        if (!_achievements[id].enabled) revert AchievementIsDisabled();
+        
+        Achievement storage achievement = _achievements[id];
+        if (achievement.achievementType != AchievementType.Progression)
+            revert InvalidAchievementType();
+
+        // Get or initialize progress
+        AchievementProgress storage progress = _userProgress[user][id];
+        if (progress.startTime == 0) {
+            progress.startTime = block.timestamp;
+        }
+        
+        // add to count
+        progress.count += value;
+        progress.lastUpdate = block.timestamp;
+
+        // Check milestones
+        for (uint256 i = 0; i < achievement.milestones.length; i++) {
+            if (progress.count >= achievement.milestones[i].requirement && 
+                !_userMilestones[user][id][i]) {
+                _userMilestones[user][id][i] = true;
+                emit MilestoneUnlocked(
+                    id, 
+                    i, 
+                    user, 
+                    achievement.milestones[i].badgeUri
+                );
+            }
+        }
+
+        emit ProgressUpdated(id, user, value);
     }
 
     function _setMilestones(Achievement storage achievement, Milestone[] memory milestones) internal {
