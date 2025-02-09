@@ -101,9 +101,10 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ActionPerformed(uint256 indexed tokenId, ActionType actionType);
     event UserSignedUp(address indexed user);
     event TotemPurchased(address indexed user, uint256 indexed tokenId, TotemNFT.Species species);
+    event TotemSold(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
-
+    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -195,20 +196,43 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // This is where users spend TOTEM to get their NFT
     function purchaseTotem(uint8 speciesId) external {
-        if (!hasSignedUp[_msgSender()]) revert NotSignedUp();
+        address user = _msgSender();
+        if (!hasSignedUp[user]) revert NotSignedUp();
         if (speciesId >= uint8(TotemNFT.Species.None)) revert InvalidSpecies();
 
         // Take payment for the totem
-        if (!totemToken.transferFrom(_msgSender(), address(this), gameParams.mintPrice))
+        if (!totemToken.transferFrom(user, address(this), gameParams.mintPrice))
             revert PurchaseFailed();
         
         // Mint their chosen totem
-        uint256 tokenId = totemNFT.mint(_msgSender(), TotemNFT.Species(speciesId));
+        uint256 tokenId = totemNFT.mint(user, TotemNFT.Species(speciesId));
 
          // Initialize action tracking
         _initializeActionTracking(tokenId);
 
-        emit TotemPurchased(_msgSender(), tokenId, TotemNFT.Species(speciesId));
+        emit TotemPurchased(user, tokenId, TotemNFT.Species(speciesId));
+    }
+
+    function sellTotem(uint256 tokenId) external {
+        address user = _msgSender();
+        require(totemNFT.ownerOf(tokenId) == user, "Not token owner");
+        
+        // Calculate value based on stage and rarity
+        
+        (,,TotemNFT.Rarity rarity,,,uint256 stage,,) = totemNFT.attributes(tokenId);
+        uint256 baseValue = 100 * 10**18; // 100 TOTEM base value
+        uint256 stageMultiplier = stage + 1; // Higher stages worth more
+        uint256 rarityMultiplier = uint256(rarity) + 1; // Rarer Totems worth more
+        
+        uint256 sellValue = baseValue * stageMultiplier * rarityMultiplier / 10;
+        
+        // Transfer TOTEM tokens to seller
+        totemToken.transfer(user, sellValue);
+        
+        // Burn the NFT
+        totemNFT.burn(tokenId);
+        
+        emit TotemSold(user, tokenId, sellValue);
     }
 
     // Convenience functions for actions

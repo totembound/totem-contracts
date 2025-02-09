@@ -220,6 +220,29 @@ contract TotemNFT is
         emit TotemEvolved(tokenId, totem.stage, totem.species, totem.rarity);
     }
 
+    function burn(uint256 tokenId) external {
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        address tokenOwner = _ownerOf(tokenId);
+        
+        // Check if caller is either:
+        // 1. The contract owner (TotemGame)
+        // 2. The token owner
+        // 3. An approved operator
+        if (msg.sender != owner()) {
+            if (
+                tokenOwner != msg.sender && 
+                !isApprovedForAll(tokenOwner, msg.sender) && 
+                getApproved(tokenId) != msg.sender
+            ) revert NotAuthorizedForToken();
+        }
+
+        // Remove the attributes
+        delete attributes[tokenId];
+
+        // Perform the burn
+        _burn(tokenId);
+    }
+
     // Single function to update attributes (called by TotemGame)
     function updateAttributes(
         uint256 tokenId,

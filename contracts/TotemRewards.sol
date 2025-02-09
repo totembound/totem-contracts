@@ -48,28 +48,38 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     struct ProtectionTier {
-        uint256 cost;             // TOTEM cost to purchase
-        uint256 duration;         // How long protection lasts
-        uint256 requiredStreak;   // Streak required to purchase
-        bool enabled;             // Whether tier is active
+        uint256 cost;              // TOTEM cost to purchase
+        uint256 duration;          // How long protection lasts
+        uint256 requiredStreak;    // Streak required to purchase
+        bool enabled;              // Whether tier is active
     }
 
     struct RewardInfo {
-        string name;              // Display name
-        string description;       // User-friendly description
-        string iconURI;          // IPFS URI for icon
-        RewardConfig config;     // Core configuration
+        string name;               // Display name
+        string description;        // User-friendly description
+        string iconURI;            // IPFS URI for icon
+        RewardConfig config;       // Core configuration
         mapping(uint8 => ProtectionTier) protectionTiers;
         mapping(string => string) metadata; // Custom attributes
     }
 
+    struct StreakStatus {
+        uint256 currentStreak;      // Current streak count
+        uint256 bestStreak;         // Best streak achieved
+        uint256 nextClaimTime;      // Timestamp when next claim is available
+        uint256 gracePeriodEnd;     // When grace period ends
+        bool canClaim;              // If user can claim now
+        bool isProtected;           // If streak is currently protected
+        uint256 protectionExpiry;   // When protection expires (if active)
+    }
+
     struct UserTracking {
-        uint256 lastClaim;       // Last claim timestamp
-        uint256 currentStreak;   // Current streak count
-        uint256 bestStreak;      // Highest achieved streak
-        uint256 totalClaims;     // Total successful claims
-        uint256 protectionExpiry; // When protection expires
-        uint8 activeTier;        // Active protection tier
+        uint256 lastClaim;          // Last claim timestamp
+        uint256 currentStreak;      // Current streak count
+        uint256 bestStreak;         // Highest achieved streak
+        uint256 totalClaims;        // Total successful claims
+        uint256 protectionExpiry;   // When protection expires
+        uint8 activeTier;           // Active protection tier
     }
 
     // State variables
@@ -81,6 +91,10 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(bytes32 => RewardInfo) private _rewardInfo;
     mapping(bytes32 => mapping(address => UserTracking)) private _userTracking;
     bytes32[] private _rewardIds;
+
+    // Constants
+    bytes32 private constant _LOGIN_ID = keccak256("daily_login");
+    bytes32 private constant _LOGIN_ACHIEVEMENT_ID = keccak256("login_progression");
 
     // Events
     event RewardConfigured(bytes32 indexed rewardId, string name, RewardConfig config);
@@ -180,6 +194,13 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Transfer reward
         if (!totemToken.transfer(user, amount)) revert TransferFailed();
 
+        // Check for achievements
+        if (address(achievements) != address(0)) {
+            if (rewardId == _LOGIN_ID) {
+                achievements.updateProgress(_LOGIN_ACHIEVEMENT_ID, user, 1);
+            }
+        }
+
         emit RewardClaimed(rewardId, user, amount, tracking.currentStreak);
         return amount;
     }
@@ -271,6 +292,84 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
         RewardInfo storage reward = _rewardInfo[rewardId];
         return (reward.name, reward.description, reward.iconURI, reward.config);
+    }
+
+    // Get complete streak status for a user
+    function getStreakStatus(
+        bytes32 rewardId,
+        address user
+    ) external view returns (StreakStatus memory) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        UserTracking storage tracking = _userTracking[rewardId][user];
+        
+        uint256 nextClaimTime = tracking.lastClaim + reward.config.interval;
+        uint256 gracePeriodEnd = nextClaimTime + reward.config.gracePeriod;
+        bool isProtected = tracking.protectionExpiry >= block.timestamp;
+        
+        return StreakStatus({
+            currentStreak: tracking.currentStreak,
+            bestStreak: tracking.bestStreak,
+            nextClaimTime: nextClaimTime,
+            gracePeriodEnd: gracePeriodEnd,
+            canClaim: _canClaim(rewardId, user),
+            isProtected: isProtected,
+            protectionExpiry: tracking.protectionExpiry
+        });
+    }
+
+    // Get time until next claim is available (0 if can claim now)
+    function getTimeUntilClaim(
+        bytes32 rewardId,
+        address user
+    ) external view returns (uint256) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        
+        UserTracking storage tracking = _userTracking[rewardId][user];
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        
+        // If first time claim or can claim now, return 0
+        if (tracking.lastClaim == 0 || _canClaim(rewardId, user)) {
+            return 0;
+        }
+        
+        uint256 nextClaimTime = tracking.lastClaim + reward.config.interval;
+        if (block.timestamp < nextClaimTime) {
+            return nextClaimTime - block.timestamp;
+        }
+        
+        return 0;
+    }
+
+    // Get protection status for a specific tier
+    function getProtectionStatus(
+        bytes32 rewardId,
+        address user,
+        uint8 tier
+    ) external view returns (
+        bool canPurchase,
+        bool isActive,
+        uint256 remainingTime
+    ) {
+        if (!_rewardExists(rewardId)) revert RewardNotConfigured();
+        
+        RewardInfo storage reward = _rewardInfo[rewardId];
+        UserTracking storage tracking = _userTracking[rewardId][user];
+        ProtectionTier memory protection = reward.protectionTiers[tier];
+        
+        bool currentlyActive = tracking.protectionExpiry >= block.timestamp && 
+                            tracking.activeTier == tier;
+        
+        bool eligibleToPurchase = protection.enabled &&
+                                reward.config.allowProtection &&
+                                tracking.currentStreak >= protection.requiredStreak &&
+                                tracking.protectionExpiry < block.timestamp;
+        
+        uint256 timeRemaining = currentlyActive ? 
+            tracking.protectionExpiry - block.timestamp : 0;
+        
+        return (eligibleToPurchase, currentlyActive, timeRemaining);
     }
 
     function getUserInfo(

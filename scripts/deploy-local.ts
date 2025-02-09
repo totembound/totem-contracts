@@ -191,7 +191,7 @@ async function main() {
     console.log("Authorizing TotemRewards...");
     const authRewardsTx = await achievements.authorize(rewardsProxyAddress);
     await authRewardsTx.wait();
-    const totemRewards = await ethers.getContractAt("TotemGame", gameProxyAddress);
+    const totemRewards = await ethers.getContractAt("TotemRewards", rewardsProxyAddress);
     await totemRewards.setAchievements(achievementsProxyAddress);
     console.log("TotemRewards authorized");
 
