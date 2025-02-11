@@ -205,12 +205,12 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
             if (achievement.category == category) {
                 // Create memory copies of arrays
                 Milestone[] memory milestonesMemory = new Milestone[](achievement.milestones.length);
-                for(uint j = 0; j < achievement.milestones.length; j++) {
+                for(uint256 j = 0; j < achievement.milestones.length; j++) {
                     milestonesMemory[j] = achievement.milestones[j];
                 }
 
                 bytes32[] memory requirementsMemory = new bytes32[](achievement.requirements.length);
-                for(uint j = 0; j < achievement.requirements.length; j++) {
+                for(uint256 j = 0; j < achievement.requirements.length; j++) {
                     requirementsMemory[j] = achievement.requirements[j];
                 }
 
@@ -439,7 +439,7 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
 
         // Check requirements are met if any
         if (config.requirements.length > 0) {
-            for (uint i = 0; i < config.requirements.length; i++) {
+            for (uint256 i = 0; i < config.requirements.length; i++) {
                 if (!_achievements[config.requirements[i]].enabled) {
                     revert RequirementsNotMet();
                 }
