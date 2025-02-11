@@ -13,14 +13,35 @@ async function main() {
 
     // Get all achievement IDs
     const achievementIds = await achievements.getAchievementIds();
+
+     // Track total achievements and milestones
+     let totalOneTimeAchievements = 0;
+     let totalMilestones = 0;
+
+     // Get achievement details to count types and milestones
+     for (const id of achievementIds) {
+        const achievement = await achievements.getAchievement(id);
+        if (Number(achievement.achievementType) === 0) { // OneTime
+            totalOneTimeAchievements++;
+        } else { // Progression
+            totalMilestones += achievement.milestones.length;
+        }
+    }
+
     console.log(`Total Configured Achievements: ${achievementIds.length}`);
+    console.log(`- One-Time Achievements: ${totalOneTimeAchievements}`);
+    console.log(`- Progression Achievements: ${achievementIds.length - totalOneTimeAchievements}`);
+    console.log(`- Progression Milestones: ${totalMilestones}`);
+    console.log(`Total Achievable Goals: ${totalOneTimeAchievements + totalMilestones}`);
 
     // Achievement category names
     const categoryNames = [
         'Evolution',
         'Collection',
         'Streak',
-        'Action'
+        'Action',
+        'Challenge',
+        'Expedition'
     ];
 
     // Track category distribution using the new getUserCategoriesProgress function
@@ -28,20 +49,36 @@ async function main() {
     const categoryProgress = await achievements.getUserCategoriesProgress(addr1.address);
     
     console.log("\nAchievement Category Distribution:");
-    categoryProgress.forEach((category, index) => {
-        console.log(`${categoryNames[index]}:`);
-        console.log(`  Total Achievements: ${category.totalAchievements}`);
-        console.log(`  Completed Achievements: ${category.completedAchievements}`);
-        console.log(`  Total Milestones: ${category.totalMilestones}`);
-        console.log(`  Unlocked Milestones: ${category.unlockedMilestones}`);
-    });
-
+    // Get all achievements by category to count types correctly
+    for (let i = 0; i < categoryNames.length; i++) {
+        const categoryAchievements = await achievements.getAchievementsByCategory(i);
+        const progress = categoryProgress[i];
+        
+        let oneTimeCount = 0;
+        let progressionMilestones = 0;
+        
+        // Count achievements by type
+        categoryAchievements.forEach(achievement => {
+            if (Number(achievement.achievementType) === 0) { // OneTime
+                oneTimeCount++;
+            } else { // Progression
+                progressionMilestones += achievement.milestones.length;
+            }
+        });
+        
+        console.log(`${categoryNames[i]}:`);
+        console.log(`  One-Time Achievements: ${oneTimeCount}`);
+        console.log(`  Progression Milestones: ${progressionMilestones}`);
+        console.log(`  Total Goals: ${oneTimeCount + progressionMilestones}`);
+        console.log(`  Completed Goals: ${progress.completedAchievements + progress.unlockedMilestones}`);
+    };
+    
     // Get user's completed achievements
     const completedAchievements = await achievements.getUserCompletedAchievements(addr1.address);
     
     console.log("\nUser Achievement Statistics:");
     console.log(`Address: ${addr1.address}`);
-    console.log(`Total Completed Achievements: ${completedAchievements.length}`);
+    console.log(`Total Completed Goals: ${completedAchievements.length}`);
     
     if (completedAchievements.length > 0) {
         console.log("\nCompleted Achievement Details:");
@@ -76,7 +113,7 @@ async function main() {
             if (!categoryViews.has(category)) {
                 categoryViews.set(
                     category, 
-                    await achievements.getAchievementsByCategory(category, addr1.address)
+                    await achievements.getAchievementsByCategory(category)
                 );
             }
             
