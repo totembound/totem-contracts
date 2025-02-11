@@ -50,7 +50,7 @@ const config: HardhatUserConfig = {
   }
 };
 
-const CONTRACTS = ["TotemGame", "TotemNFT", "TotemRewards", "TotemAchievements"];
+const CONTRACTS = ["TotemGame", "TotemNFT", "TotemRewards", "TotemAchievements", "TotemToken"];
 const FRONTEND_ABI_PATH = "../totem-app/src/contracts"; // Adjust path as needed
 
 task("export-abi", "Exports contract ABIs to frontend")

@@ -159,7 +159,8 @@ describe("TotemAchievements", function () {
                     achievementType: config.type,
                     badgeUri: config.badgeUri,
                     subType: config.subType,
-                    milestones: config.milestones
+                    milestones: config.milestones,
+                    requirements: []
                 };
             
                 await achievements.configureAchievement(achievementConfig);
@@ -231,7 +232,8 @@ describe("TotemAchievements", function () {
                     achievementType: test.type,
                     badgeUri: "ipfs://badge",
                     subType: test.expectedSubType,
-                    milestones: test.milestones
+                    milestones: test.milestones,
+                    requirements: []
                 };
 
                 await achievements.configureAchievement(achievementConfig);
@@ -259,7 +261,8 @@ describe("TotemAchievements", function () {
                     description: "Feed your totem 100 times",
                     badgeUri: "ipfs://action/feed/100",
                     requirement: 100,
-                }]
+                }],
+                requirements: []
             });
         });
 
@@ -336,7 +339,8 @@ describe("TotemAchievements", function () {
                         badgeUri: "ipfs://badge/evolution/stage4",
                         requirement: 4
                     }
-                ]
+                ],
+                requirements: []
             });
         });
     
@@ -465,7 +469,8 @@ describe("TotemAchievements", function () {
                 achievementType: AchievementType.OneTime,
                 badgeUri: "ipfs://train-icon",
                 subType: ethers.id("train_strage"),
-                milestones: []
+                milestones: [],
+                requirements: []
             });
         });
     
@@ -504,7 +509,8 @@ describe("TotemAchievements", function () {
                     description: "Feed milestone",
                     badgeUri: "ipfs://feed/1",
                     requirement: 100
-                }]
+                }],
+                requirements: []
             });
 
             await achievements.configureAchievement({
@@ -520,7 +526,8 @@ describe("TotemAchievements", function () {
                     description: "Train milestone",
                     badgeUri: "ipfs://train/1",
                     requirement: 100
-                }]
+                }],
+                requirements: []
             });
         });
 
@@ -588,7 +595,8 @@ describe("TotemAchievements", function () {
                         badgeUri: "ipfs://milestone/3",
                         requirement: 15
                     }
-                ]
+                ],
+                requirements: []
             });
 
             const achievementId = ethers.id("progression_test");
@@ -636,7 +644,8 @@ describe("TotemAchievements", function () {
                     description: "Feed milestone",
                     badgeUri: "ipfs://feed/1",
                     requirement: 100
-                }]
+                }],
+                requirements: []
             });
         });
 

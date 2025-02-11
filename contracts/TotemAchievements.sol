@@ -16,6 +16,7 @@ error RequirementNotMet();
 error UnauthorizedContract();
 error InvalidAchievementType();
 error NoMilestonesConfigured();
+error RequirementsNotMet();
 
 contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITotemAchievements {
     // State variables
@@ -165,7 +166,8 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         string memory badgeUri,
         bytes32 subType,
         bool enabled,
-        Milestone[] memory milestones
+        Milestone[] memory milestones,
+        bytes32[] memory requirements
     ) {
         Achievement storage achievement = _achievements[id];
         if (bytes(achievement.name).length == 0) revert AchievementNotFound();
@@ -178,13 +180,13 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
             achievement.badgeUri,
             achievement.subType,
             achievement.enabled,
-            achievement.milestones
+            achievement.milestones,
+            achievement.requirements
         );
     }
 
     function getAchievementsByCategory(
-        AchievementCategory category,
-        address user
+        AchievementCategory category
     ) external view returns (AchievementView[] memory) {
         uint256 count = 0;
         for (uint256 i = 0; i < _achievementIds.length; i++) {
@@ -201,19 +203,30 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
             Achievement storage achievement = _achievements[id];
             
             if (achievement.category == category) {
-                AchievementProgress storage progress = _userProgress[user][id];
-                
+                // Create memory copies of arrays
+                Milestone[] memory milestonesMemory = new Milestone[](achievement.milestones.length);
+                for(uint256 j = 0; j < achievement.milestones.length; j++) {
+                    milestonesMemory[j] = achievement.milestones[j];
+                }
+
+                bytes32[] memory requirementsMemory = new bytes32[](achievement.requirements.length);
+                for(uint256 j = 0; j < achievement.requirements.length; j++) {
+                    requirementsMemory[j] = achievement.requirements[j];
+                }
+
                 views[index] = AchievementView({
                     id: id,
                     name: achievement.name,
                     description: achievement.description,
+                    category: achievement.category,
                     achievementType: achievement.achievementType,
                     subType: achievement.subType,
                     enabled: achievement.enabled,
                     badgeUri: achievement.badgeUri,
-                    milestones: achievement.milestones,
-                    isCompleted: userAchievements[user][id],
-                    currentCount: progress.count
+                    milestones: milestonesMemory,
+                    requirements: requirementsMemory,
+                    isCompleted: false,
+                    currentCount: 0
                 });
                 index++;
             }
@@ -225,7 +238,7 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
     function getUserCategoriesProgress(
         address user
     ) external view returns (CategoryProgress[] memory) {
-        CategoryProgress[] memory progress = new CategoryProgress[](4); // Assuming 4 categories
+        CategoryProgress[] memory progress = new CategoryProgress[](6); // Assuming 6 categories
         
         for (uint256 cat = 0; cat < 4; cat++) {
             progress[cat].category = AchievementCategory(cat);
@@ -283,11 +296,13 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
                     id: id,
                     name: achievement.name,
                     description: achievement.description,
+                    category: achievement.category,
                     achievementType: achievement.achievementType,
                     subType: achievement.subType,
                     enabled: achievement.enabled,
                     badgeUri: achievement.badgeUri,
                     milestones: achievement.milestones,
+                    requirements: achievement.requirements,
                     isCompleted: true,
                     currentCount: progress.count
                 });
@@ -422,6 +437,17 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         bytes32 id = keccak256(bytes(config.idString));
         Achievement storage achievement = _achievements[id];
 
+        // Check requirements are met if any
+        if (config.requirements.length > 0) {
+            for (uint256 i = 0; i < config.requirements.length; i++) {
+                if (!_achievements[config.requirements[i]].enabled) {
+                    revert RequirementsNotMet();
+                }
+            }
+            achievement.requirements = config.requirements;
+        }
+
+
         // Basic setup
         achievement.name = config.name;
         achievement.description = config.description;
@@ -429,12 +455,10 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         achievement.category = config.category;
         achievement.achievementType = config.achievementType;
         achievement.subType = config.subType;
+        achievement.badgeUri = config.badgeUri;
 
         // Handle achievement type specific setup
-        if (config.achievementType == AchievementType.OneTime) {
-            achievement.badgeUri = config.badgeUri;
-        }
-        else {
+        if (config.achievementType == AchievementType.Progression) {
             if (config.milestones.length == 0) revert NoMilestonesConfigured();
             delete achievement.milestones;
             _setMilestones(achievement, config.milestones);
