@@ -6,7 +6,9 @@ interface ITotemAchievements {
         Evolution,      // Stage based
         Collection,     // NFT ownership based
         Streak,         // Time consistency based
-        Action          // Game action based
+        Action,         // Game action based
+        Challenge,      // Challenge completion based
+        Expedition      // Expedition completion based
     }
 
     enum AchievementType {
@@ -16,6 +18,7 @@ interface ITotemAchievements {
 
     struct Milestone {
         string name;
+        string description;
         string badgeUri;
         uint256 requirement;
     }
@@ -33,12 +36,11 @@ interface ITotemAchievements {
         bool enabled;
         AchievementCategory category;
         AchievementType achievementType;
-        bytes32 subType; // e.g., "feed_count" for Action type
-         // OneTime achievements use these:
-        string badgeUri;
-        // Progression achievements use these:
-        Milestone[] milestones;
+        bytes32 subType;        // e.g., "feed_count" for Action type
+        string badgeUri;        // OneTime achievements use this
+        Milestone[] milestones; // Progression achievements use these
         mapping(string => string) metadata;  // For extensibility
+        bytes32[] requirements; // Achievement IDs required before this can be unlocked
     }
 
     struct AchievementConfig {
@@ -50,17 +52,20 @@ interface ITotemAchievements {
         string badgeUri;
         bytes32 subType;
         Milestone[] milestones;
+        bytes32[] requirements;
     }
 
     struct AchievementView {
         bytes32 id;
         string name;
         string description;
+        AchievementCategory category;
         AchievementType achievementType;
+        string badgeUri;
         bytes32 subType;
         bool enabled;
-        string badgeUri;
         Milestone[] milestones;
+        bytes32[] requirements;
         bool isCompleted;
         uint256 currentCount;
     }
@@ -98,9 +103,10 @@ interface ITotemAchievements {
         string memory badgeUri,
         bytes32 subType,
         bool enabled,
-        Milestone[] memory milestones
+        Milestone[] memory milestones,
+        bytes32[] memory requirements
     );
-    function getAchievementsByCategory(AchievementCategory category, address user) external view returns (
+    function getAchievementsByCategory(AchievementCategory category) external view returns (
         AchievementView[] memory
     );
     function getUserCategoriesProgress(address user) external view returns (CategoryProgress[] memory);
