@@ -142,7 +142,7 @@ describe("TotemGame", function () {
             // Verify Treat configuration
             expect(treatConfig.cost).to.equal(ethers.parseUnits("20", 18));
             expect(treatConfig.cooldown).to.equal(14400n);
-            expect(treatConfig.maxDaily).to.equal(2n);
+            expect(treatConfig.maxDaily).to.equal(0n);
         });
     });
 

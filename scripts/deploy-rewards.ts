@@ -21,7 +21,7 @@ async function main() {
         streakBonus: 5,                          // 5% per day
         maxStreakBonus: 100,                     // Max 100% bonus
         minStreak: 0,                            // No minimum
-        gracePeriod: 3600,                       // 1-hour grace period
+        gracePeriod: 7200,                       // 2-hour grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 2                   // Two protection tiers for daily

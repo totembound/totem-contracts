@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { safeIncreaseTo } = require("./timeHelpers");
 
 describe("TotemRewards", function () {
     let TotemRewards, TotemToken, TotemProxy, TotemProxyAdmin;
@@ -12,12 +13,12 @@ describe("TotemRewards", function () {
     const weeklyRewardId = ethers.id("weekly_bonus");
 
     const dailyConfig = {
-        baseAmount: ethers.parseUnits("10", 18),     // 10 TOTEM
-        interval: 86400,                             // 24 hours
+        baseAmount: ethers.parseUnits("10", 18),    // 10 TOTEM
+        interval: 86400,                            // 24 hours
         streakBonus: 5,                             // 5% per day
         maxStreakBonus: 100,                        // Max 100% bonus
         minStreak: 0,                               // No minimum
-        gracePeriod: 3600,                          // 1-hour grace period
+        gracePeriod: 7200,                          // 2-hour grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 2                      // Two protection tiers
@@ -131,6 +132,10 @@ describe("TotemRewards", function () {
             requiredStreak: 4,                       // Need 4-week streak
             enabled: true
         });
+        
+        // Enable rewards
+        await rewards.enableReward(dailyRewardId);
+        await rewards.enableReward(weeklyRewardId);
     });
 
     describe("Initialization", function () {
@@ -153,11 +158,25 @@ describe("TotemRewards", function () {
     });
 
     describe("Reward Claiming", function () {
-        beforeEach(async function () {
-            // Enable rewards before each test
-            await rewards.enableReward(dailyRewardId);
-            await rewards.enableReward(weeklyRewardId);
-        });
+        async function setupClaimTests(contract, user, config) {
+            // Get current block timestamp
+            const currentTimestamp = await time.latest();
+            
+            // Calculate next UTC midnight
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            
+            // Safely increase to next midnight
+            await safeIncreaseTo(nextMidnight);
+
+            // Initial claim
+            await contract.connect(user).claim(dailyRewardId);
+            const initialBalance = await token.balanceOf(user.address);
+
+            // Move time forward past midnight but within grace period
+            await time.increase(config.interval + config.gracePeriod / 2);
+
+            return initialBalance;
+        }
 
         it("Should allow claiming daily reward", async function () {
             const initialBalance = await token.balanceOf(addr1.address);
@@ -179,46 +198,63 @@ describe("TotemRewards", function () {
         });
 
         it("Should allow claiming after interval", async function () {
+            const initialBalance = await setupClaimTests(rewards, addr1, dailyConfig);
+            
+            // Claim again
             await rewards.connect(addr1).claim(dailyRewardId);
             
-            // Move time forward past interval
-            await time.increase(dailyConfig.interval + 1);
-            
-            // Should be able to claim again
-            await rewards.connect(addr1).claim(dailyRewardId);
+            const newBalance = await token.balanceOf(addr1.address);
+            expect(newBalance).to.be.gt(initialBalance);
             
             const tracking = await rewards.getUserInfo(dailyRewardId, addr1.address);
             expect(tracking.currentStreak).to.equal(2n);
         });
 
         it("Should apply streak bonus correctly", async function () {
-            // First claim
-            await rewards.connect(addr1).claim(dailyRewardId);
-            let balance = await token.balanceOf(addr1.address);
-            expect(balance).to.equal(dailyConfig.baseAmount);
+            const initialBalance = await setupClaimTests(rewards, addr1, dailyConfig);
 
-            // Move time forward and claim again
-            await time.increase(dailyConfig.interval + 1);
+            // Claim again
             await rewards.connect(addr1).claim(dailyRewardId);
             
-            const expectedBonus = dailyConfig.baseAmount * BigInt(5) / BigInt(100); // 5% bonus
-            balance = await token.balanceOf(addr1.address);
-            expect(balance).to.equal(dailyConfig.baseAmount * 2n + expectedBonus);
+            const balance = await token.balanceOf(addr1.address);
+            const expectedBaseAmount = dailyConfig.baseAmount;
+            const expectedBonus = expectedBaseAmount * BigInt(5) / BigInt(100); // 5% bonus
+            expect(balance).to.equal(initialBalance + expectedBaseAmount + expectedBonus);
+        });
+
+        it("Should not allow claiming outside grace period", async function () {
+            // Initial claim at midnight
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight);
+            
+            await rewards.connect(addr1).claim(dailyRewardId);
+
+            // Move time past grace period
+            await time.increase(dailyConfig.interval + dailyConfig.gracePeriod + 1);
+
+            // Should not allow claiming
+            await expect(rewards.connect(addr1).claim(dailyRewardId))
+                .to.be.revertedWithCustomError(rewards, "ClaimingCurrentlyNotAllowed");
         });
     });
 
     describe("Protection System", function () {
         beforeEach(async function () {
-            // Enable rewards
-            await rewards.enableReward(dailyRewardId);
-            await rewards.enableReward(weeklyRewardId);
+            // Set timestamp to UTC midnight
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight);
 
-            // Build up required streak
+            // Build up required streak with daily claims
             for(let i = 0; i < 7; i++) {
                 await rewards.connect(addr1).claim(dailyRewardId);
-                await time.increase(dailyConfig.interval);
+                
+                // Move time forward one day
+                await time.increase(86400);
             }
-            // Approve tokens for protection purchase, transfer from game to user
+
+            // Approve tokens for protection purchase
             await token.transferAllocation(0, addr1.address, ethers.parseUnits("1000", 18));
             await token.connect(addr1).approve(
                 await rewards.getAddress(),
@@ -242,6 +278,9 @@ describe("TotemRewards", function () {
             const beforeInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
             const currentTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
             expect(beforeInfo.protectionExpiry).to.be.gt(currentTimestamp);
+
+            // Move time forward one day
+            await time.increase(86400);
 
             // Check if claiming is allowed
             const isAllowed = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);

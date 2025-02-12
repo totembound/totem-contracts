@@ -35,7 +35,7 @@ contract TotemToken is
     }
 
     function initialize(address initialOracle) public initializer {
-        __ERC20_init("TotemToken", "TOTEM");
+        __ERC20_init("TotemBound Token", "TOTEM");
         __Pausable_init();
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
