@@ -154,7 +154,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         actionConfigs[ActionType.Treat] = ActionConfig({
             cost: 20 * 10**18,           // 20 TOTEM
             cooldown: 14400,             // 4 hour cooldown
-            maxDaily: 2,                 // 2 per day
+            maxDaily: 0,                 // Unlimited
             minHappiness: 0,             // No minimum
             happinessChange: 10,         // +10 happiness
             experienceGain: 0,           // No experience
