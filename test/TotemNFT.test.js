@@ -14,6 +14,10 @@ describe("TotemNFT", function () {
         MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
         randomOracle = await MockRandomOracle.deploy();
 
+        // Deploy mock achievements
+        const MockAchievements = await ethers.getContractFactory("MockAchievements");
+        achievements = await MockAchievements.deploy();
+
         // Deploy proxy admin
         const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
         proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
@@ -37,6 +41,9 @@ describe("TotemNFT", function () {
         // Set random oracle
         await nft.setRandomOracle(await randomOracle.getAddress());
 
+        // Set achievements contract
+        await nft.setAchievements(await achievements.getAddress());
+
         await nft.setValidColorsForRarities(
             [0, 0, 0, 0,   // Common
              1, 1, 1, 1,   // Uncommon
@@ -50,6 +57,15 @@ describe("TotemNFT", function () {
              11, 12, 13,   // Epic -> EmeraldGreen, CrimsonRed, DeepSapphire
              14, 15]       // Legendary -> RadiantGold, EtherealSilver
         );
+
+        // Configure thresholds
+        await nft.setPrestigeXpThreshold(7500);      // Base prestige threshold
+        await nft.setPrestigeXpThresholdLevels(2500); // XP per prestige level
+
+        nft.on("DebugEvolution", (tokenId, stage, exp, requiredExp, message) => {
+            console.log(`Debug: ${message} - Token ${tokenId} at Stage ${stage} with EXP ${exp}/${requiredExp}`);
+        });
+
     });
 
     describe("Initialization", function () {
@@ -114,7 +130,7 @@ describe("TotemNFT", function () {
             // Get the assigned attributes from random oracle
             tokenAttrs = await nft.attributes(tokenId);
             
-            // Set metadata URIs for all potential evolution stages for this token
+            // CRITICAL: Set metadata URIs for ALL stages before testing
             for (let stage = 0; stage <= 4; stage++) {
                 await nft.setMetadataURI(
                     tokenAttrs.species,
@@ -167,6 +183,153 @@ describe("TotemNFT", function () {
             await expect(nft.connect(addr1).evolve(tokenId))
                 .to.emit(nft, "TotemEvolved")
                 .withArgs(tokenId, 1, tokenAttrs.species, tokenAttrs.rarity);
+        });
+    });
+
+    describe("Prestige System", function () {
+        let tokenId;
+    
+        beforeEach(async function () {
+            // Mint token and set up metadata URIs
+            await nft.mint(addr1.address, 0);
+            tokenId = 1;
+            
+            // Set metadata URIs for all stages
+            const attrs = await nft.attributes(tokenId);
+            for (let stage = 0; stage <= 4; stage++) {
+                await nft.setMetadataURI(
+                    attrs.species,
+                    attrs.color,
+                    stage,
+                    `ipfs://test-hash-stage-${stage}`
+                );
+            }
+        });
+    
+        it("Should not have prestige before reaching elder stage", async function () {
+            await nft.updateAttributes(tokenId, 0, true, 7000); // High XP but not elder
+            
+            const [prestigeLevel, nextThreshold] = await nft.getPrestigeInfo(tokenId);
+            expect(prestigeLevel).to.equal(0);
+            expect(nextThreshold).to.equal(0);
+        });
+    
+        it("Should calculate prestige level correctly at elder stage", async function () {
+            // Evolve to elder (stage 4)
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+    
+            // Add more XP for first prestige level (need full 2500)
+            await nft.updateAttributes(tokenId, 0, true, 2500);
+            
+            let [prestigeLevel, nextThreshold] = await nft.getPrestigeInfo(tokenId);
+            expect(prestigeLevel).to.equal(1);
+            expect(nextThreshold).to.equal(12500); // 7500 + (1+1)*2500
+    
+            // Add more XP for next prestige level
+            await nft.updateAttributes(tokenId, 0, true, 2500);
+            
+            [prestigeLevel, nextThreshold] = await nft.getPrestigeInfo(tokenId);
+            expect(prestigeLevel).to.equal(2);
+            expect(nextThreshold).to.equal(15000); // 7500 + (2+1)*2500
+        });
+    
+        it("Should emit PrestigeLevelReached event", async function () {
+            // Evolve to elder (stage 4)
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+
+            // Now add enough XP to trigger first prestige level
+            // Expect the event to be emitted
+            await expect(nft.updateAttributes(tokenId, 0, true, 2500))
+                .to.emit(nft, "PrestigeLevelReached")
+                .withArgs(tokenId, 1);
+        });
+    
+        it("Should track multiple prestige levels correctly", async function () {
+            // Evolve to elder
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+    
+            // Test multiple prestige levels
+            const testLevels = [
+                { xpGain: 2500, expectedLevel: 1, expectedNext: 12500 },
+                { xpGain: 2500, expectedLevel: 2, expectedNext: 15000 },
+                { xpGain: 2500, expectedLevel: 3, expectedNext: 17500 },
+                { xpGain: 2500, expectedLevel: 4, expectedNext: 20000 }
+            ];
+    
+            for (const test of testLevels) {
+                await nft.updateAttributes(tokenId, 0, true, test.xpGain);
+                const [level, next] = await nft.getPrestigeInfo(tokenId);
+                expect(level).to.equal(test.expectedLevel);
+                expect(next).to.equal(test.expectedNext);
+            }
+        });
+    
+        it("Should maintain happiness independent of prestige", async function () {
+            // Evolve to elder 
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+
+            // Add enough XP to trigger first prestige level
+            await nft.updateAttributes(tokenId, 0, true, 2500);
+
+            // Manipulate happiness
+            await nft.updateAttributes(tokenId, 20, false, 0); // Decrease happiness
+            const attrs = await nft.attributes(tokenId);
+            
+            // Check prestige level and happiness separately
+            const [prestigeLevel, _] = await nft.getPrestigeInfo(tokenId);
+            expect(prestigeLevel).to.equal(1); // Has first prestige
+            expect(attrs.happiness).to.equal(30); // 50 - 20
+        });
+    
+        it("Should handle partial progress towards next prestige level", async function () {
+            // Evolve to elder
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+    
+            // Add partial XP towards first prestige
+            await nft.updateAttributes(tokenId, 0, true, 1000);
+            
+            const [level, next] = await nft.getPrestigeInfo(tokenId);
+            expect(level).to.equal(0);  // Not yet reached first prestige
+            expect(next).to.equal(10000); // Base + 1*level_threshold
+            
+            // Verify attributes directly
+            const attrs = await nft.attributes(tokenId);
+            expect(attrs.experience).to.equal(8500); // 7500 + 1000
+            expect(attrs.prestigeLevel).to.equal(0);
+        });
+    
+        it("Should work with achievement system", async function () {
+            // First reach elder with base XP
+            await nft.updateAttributes(tokenId, 0, true, 7500);
+            
+            // Need to evolve through all stages first
+            for (let i = 0; i < 4; i++) {
+                await nft.connect(addr1).evolve(tokenId);
+            }
+    
+            // Then gain enough XP for first prestige level
+            await nft.updateAttributes(tokenId, 0, true, 2500);
+    
+            // Verify achievement was triggered
+            expect(await achievements.wasProgressUpdated(
+                ethers.id("prestige_progression"),
+                addr1.address
+            )).to.be.true;
         });
     });
 

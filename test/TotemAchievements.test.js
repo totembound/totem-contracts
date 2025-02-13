@@ -458,6 +458,220 @@ describe("TotemAchievements", function () {
         });
     });
 
+    describe("Achievement Requirements with Milestones", function () {
+        const ONETIME_REQUIREMENT = ethers.MaxUint256;
+    
+        beforeEach(async function () {
+            // Configure evolution progression achievement first (required by epics)
+            await achievements.configureAchievement({
+                idString: "evolution_progression",
+                name: "Evolution Mastery",
+                description: "Master the art of evolving",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.Progression,
+                badgeUri: "",
+                subType: ethers.id("evolution"),
+                milestones: [
+                    {
+                        name: "First Evolution",
+                        description: "Stage 1",
+                        badgeUri: "ipfs://1",
+                        requirement: 1
+                    },
+                    {
+                        name: "Adept Evolution",
+                        description: "Stage 2",
+                        badgeUri: "ipfs://2",
+                        requirement: 2
+                    },
+                    {
+                        name: "Master Evolution",
+                        description: "Stage 3",
+                        badgeUri: "ipfs://3",
+                        requirement: 3
+                    },
+                    {
+                        name: "Elder Evolution",
+                        description: "Stage 4",
+                        badgeUri: "ipfs://4",
+                        requirement: 4
+                    }
+                ],
+                requirements: []
+            });
+    
+            // Configure a one-time achievement
+            await achievements.configureAchievement({
+                idString: "rare_collector",
+                name: "Rare Collector",
+                description: "Collect rare",
+                category: AchievementCategory.Collection,
+                achievementType: AchievementType.OneTime,
+                badgeUri: "",
+                subType: ethers.id("rarity"),
+                milestones: [],
+                requirements: []
+            });
+        });
+    
+        it("Should handle specific milestone requirements correctly", async function () {
+            // Configure epic achievement requiring specific milestone
+            await achievements.configureAchievement({
+                idString: "epic_evolution",
+                name: "Epic Evolution",
+                description: "Epic evolution",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.OneTime,
+                badgeUri: "",
+                subType: ethers.id("evolution"),
+                milestones: [],
+                requirements: [{
+                    achievementId: ethers.id("evolution_progression"),
+                    milestoneIndex: 2 // Requires "Master Evolution" milestone
+                }]
+            });
+    
+            // Get progress before meeting requirement
+            let progress = await achievements.getDetailedProgress(
+                ethers.id("epic_evolution"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.false;
+    
+            // Progress to stage 2 (not enough)
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            
+            progress = await achievements.getDetailedProgress(
+                ethers.id("epic_evolution"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.false;
+    
+            // Progress to stage 3 (meets requirement)
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 3);
+            
+            progress = await achievements.getDetailedProgress(
+                ethers.id("epic_evolution"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.true;
+        });
+    
+        it("Should handle one-time achievement requirements correctly", async function () {
+            // Configure achievement requiring one-time achievement
+            await achievements.configureAchievement({
+                idString: "requires_rare",
+                name: "Requires Rare",
+                description: "Requires rare collector",
+                category: AchievementCategory.Collection,
+                achievementType: AchievementType.OneTime,
+                badgeUri: "",
+                subType: ethers.id("collection"),
+                milestones: [],
+                requirements: [{
+                    achievementId: ethers.id("rare_collector"),
+                    milestoneIndex: ONETIME_REQUIREMENT
+                }]
+            });
+    
+            // Check requirements not met initially
+            let progress = await achievements.getDetailedProgress(
+                ethers.id("requires_rare"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.false;
+    
+            // Unlock required achievement
+            await achievements.connect(authorizedContract).unlockAchievement(
+                ethers.id("rare_collector"),
+                addr1.address
+            );
+    
+            // Check requirements now met
+            progress = await achievements.getDetailedProgress(
+                ethers.id("requires_rare"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.true;
+        });
+    
+        it("Should reject invalid milestone indices", async function () {
+            // Try to configure with invalid milestone index
+            await expect(
+                achievements.configureAchievement({
+                    idString: "invalid_requirement",
+                    name: "Invalid Requirement",
+                    description: "Test invalid",
+                    category: AchievementCategory.Evolution,
+                    achievementType: AchievementType.OneTime,
+                    badgeUri: "",
+                    subType: ethers.id("evolution"),
+                    milestones: [],
+                    requirements: [{
+                        achievementId: ethers.id("evolution_progression"),
+                        milestoneIndex: 99 // Invalid index
+                    }]
+                })
+            ).to.be.revertedWithCustomError(achievements, "InvalidRequirement");
+        });
+    
+        it("Should handle multiple requirements with mixed types", async function () {
+            // Configure achievement with both one-time and milestone requirements
+            await achievements.configureAchievement({
+                idString: "mixed_requirements",
+                name: "Mixed Requirements",
+                description: "Test mixed",
+                category: AchievementCategory.Evolution,
+                achievementType: AchievementType.OneTime,
+                badgeUri: "",
+                subType: ethers.id("evolution"),
+                milestones: [],
+                requirements: [
+                    {
+                        achievementId: ethers.id("rare_collector"),
+                        milestoneIndex: ONETIME_REQUIREMENT
+                    },
+                    {
+                        achievementId: ethers.id("evolution_progression"),
+                        milestoneIndex: 2 // Requires "Master Evolution"
+                    }
+                ]
+            });
+    
+            // Check requirements not met initially
+            let progress = await achievements.getDetailedProgress(
+                ethers.id("mixed_requirements"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.false;
+    
+            // Meet only one requirement
+            await achievements.connect(authorizedContract).unlockAchievement(
+                ethers.id("rare_collector"),
+                addr1.address
+            );
+            
+            progress = await achievements.getDetailedProgress(
+                ethers.id("mixed_requirements"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.false;
+    
+            // Meet second requirement
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 1);
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 2);
+            await achievements.connect(authorizedContract).updateEvolutionProgress(addr1.address, 3);
+    
+            // Now both requirements should be met
+            progress = await achievements.getDetailedProgress(
+                ethers.id("mixed_requirements"), 
+                addr1.address
+            );
+            expect(progress.requirementsMet).to.be.true;
+        });
+    });
+    
     describe("Direct Achievement Unlock", function () {
         beforeEach(async function () {
             // Configure an achievement for direct unlock
