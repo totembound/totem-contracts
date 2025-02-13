@@ -82,6 +82,7 @@ contract TotemNFT is
         uint256 stage;      // 0 (Egg/Pup) to 4 (Elder)
         bool isStaked;      // For stage 4 staking
         string displayName;
+        uint256 prestigeLevel;
     }
 
     // Mapping from token ID to attributes
@@ -97,8 +98,11 @@ contract TotemNFT is
 
     // Experience thresholds for each stage
     uint256[4] public stageThresholds;
-    
+    uint256 public prestigeXpThreshold;
+    uint256 public prestigeXpThresholdLevels;
+
     // Constants
+    uint256 private constant _MAX_STAGE = 4;
     bytes32 private constant _COLLECTOR_ACHIEVEMENT_ID = keccak256("collector_progression");
     bytes32 private constant _RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
     bytes32 private constant _EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
@@ -106,6 +110,7 @@ contract TotemNFT is
     bytes32 private constant _RARE_EVOLUTION_ACHIEVEMENT_ID = keccak256("rare_evolution");
     bytes32 private constant _EPIC_EVOLUTION_ACHIEVEMENT_ID = keccak256("epic_evolution");
     bytes32 private constant _LEGENDARY_EVOLUTION_ACHIEVEMENT_ID = keccak256("legendary_evolution");
+    bytes32 private constant _PRESTIGE_EVOLUTION_ACHIEVEMENT_ID = keccak256("prestige_progression");
 
      // Events
     event AttributesUpdated(uint256 indexed tokenId, uint256 happiness, uint256 experience);
@@ -114,6 +119,7 @@ contract TotemNFT is
     event TotemStaked(uint256 indexed tokenId);
     event TotemUnstaked(uint256 indexed tokenId);
     event MetadataURISet(Species species, Color color, uint256 stage, string uri);
+    event PrestigeLevelReached(uint256 indexed tokenId, uint256 prestigeLevel);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -128,6 +134,8 @@ contract TotemNFT is
 
         // Initialize stages
         stageThresholds =  [500, 1500, 3500, 7500];
+        prestigeXpThreshold = 7500;
+        prestigeXpThresholdLevels = 2500;
     }
 
     function mint(
@@ -157,7 +165,8 @@ contract TotemNFT is
             experience: 0,
             stage: 0,
             isStaked: false,
-            displayName: ""
+            displayName: "",
+            prestigeLevel: 0
         });
 
         _safeMint(to, tokenId);
@@ -182,10 +191,14 @@ contract TotemNFT is
 
     function evolve(uint256 tokenId) external {
         address user = msg.sender;
-         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
-         if (_ownerOf(tokenId) != user && 
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+
+        // Allow token owner or approved addresses
+        if (_ownerOf(tokenId) != user && 
             !isApprovedForAll(_ownerOf(tokenId), user) && 
-            getApproved(tokenId) != user) revert NotAuthorizedForToken();
+            getApproved(tokenId) != user) {
+            revert NotAuthorizedForToken();
+        }
 
         TotemAttributes storage totem = attributes[tokenId];
         if (totem.stage >= 4) revert MaxStageReached();
@@ -204,7 +217,7 @@ contract TotemNFT is
             // Progress on evolution stages
             achievements.updateEvolutionProgress(user, totem.stage);
 
-            if (totem.stage == 4) {
+            if (totem.stage == _MAX_STAGE) {
                 if (totem.rarity == Rarity.Rare) {
                     achievements.unlockAchievement(_RARE_EVOLUTION_ACHIEVEMENT_ID, user);
                 }
@@ -252,16 +265,41 @@ contract TotemNFT is
     ) external onlyOwner {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         
+        TotemAttributes storage totem = attributes[tokenId];
+
+        // Store the previous prestige level before modifications
+        uint256 previousPrestigeLevel = totem.prestigeLevel;
+        address tokenOwner = _ownerOf(tokenId);
+
         // Update happiness
         if (isHappinessIncrease) {
-            attributes[tokenId].happiness = _min(attributes[tokenId].happiness + happinessChange, 100);
+            totem.happiness = _min(totem.happiness + happinessChange, 100);
         } else {
-            attributes[tokenId].happiness = _max(attributes[tokenId].happiness - happinessChange, 0);
+            totem.happiness = _max(totem.happiness - happinessChange, 0);
         }
         
-        // Update experience
+        // Update experience and handle prestige
         if (experienceGain > 0) {
-            attributes[tokenId].experience += experienceGain;
+            totem.experience += experienceGain;
+
+             // Check for prestige levels after max stage
+            if (totem.stage == _MAX_STAGE && totem.experience >= prestigeXpThreshold) {
+                uint256 currentPrestigeLevel = (totem.experience - prestigeXpThreshold) / prestigeXpThresholdLevels;
+
+                // Only update and emit if prestige level has changed
+                if (currentPrestigeLevel > previousPrestigeLevel) {
+                    totem.prestigeLevel = currentPrestigeLevel;
+
+                    // Trigger achievements if prestige level increased
+                    if (address(achievements) != address(0)) {
+                        // Update progress for prestige achievement
+                        achievements.updateProgress(_PRESTIGE_EVOLUTION_ACHIEVEMENT_ID, tokenOwner, 1);
+                        
+                        // Emit the event
+                        emit PrestigeLevelReached(tokenId, totem.prestigeLevel);
+                    }
+                }
+            }
         }
 
         emit AttributesUpdated(
@@ -325,6 +363,14 @@ contract TotemNFT is
         stageThresholds = newThresholds;
     }
 
+    function setPrestigeXpThreshold(uint256 newXpThreshold) external onlyOwner {
+        prestigeXpThreshold = newXpThreshold;
+    }
+
+    function setPrestigeXpThresholdLevels(uint256 newXpThresholdLevels) external onlyOwner {
+        prestigeXpThresholdLevels = newXpThresholdLevels;
+    }
+
     function setDisplayName(uint256 tokenId, string memory newName) external {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
@@ -351,6 +397,24 @@ contract TotemNFT is
         }
         
         return tokens;
+    }
+
+    function getPrestigeInfo(uint256 tokenId) external view returns (
+        uint256 prestigeLevel,
+        uint256 nextPrestigeXP
+    ) {
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
+        
+        TotemAttributes storage totem = attributes[tokenId];
+        
+        if (totem.stage < _MAX_STAGE) {
+            return (0, 0);
+        }
+        
+        prestigeLevel = totem.prestigeLevel;
+        nextPrestigeXP = prestigeXpThreshold + (prestigeLevel + 1) * prestigeXpThresholdLevels;
+        
+        return (prestigeLevel, nextPrestigeXP);
     }
 
     // View function to get URI directly (for frontend)

@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { loadDeployment } from "./helpers";
 import { TotemAchievements } from "../typechain-types";
+const ONETIME_REQUIREMENT = ethers.MaxUint256;
 
 async function main() {
     const deployment = loadDeployment("localhost");
@@ -28,115 +29,7 @@ async function main() {
         Progression=1    // Multiple milestones with badges
     }
 
-    // Initialize default achievements
-    const evolutionAchievements = [
-        {
-            id: "rare_evolution",
-            name: "Rare Elder Evolution",
-            description: "Evolve a Rare totem to Elder",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
-            badgeUri: "ipfs://badge/evolution/rare",
-            subType: ethers.id("rarity_evolution"),
-            milestones: [],
-            requirements: [] // No prerequisites
-        },
-        {
-            id: "epic_evolution",
-            name: "Epic Elder Evolution",
-            description: "Evolve an Epic totem to Elder",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
-            badgeUri: "ipfs://badge/evolution/epic",
-            subType: ethers.id("rarity_evolution"),
-            milestones: [],
-            requirements: [ethers.id("rare_evolution")] // Requires rare evolution first
-        },
-        {
-            id: "legendary_evolution",
-            name: "Legendary Elder Evolution",
-            description: "Evolve a Legendary totem to Elder",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
-            badgeUri: "ipfs://badge/evolution/legendary",
-            subType: ethers.id("rarity_evolution"),
-            milestones: [],
-            requirements: [ethers.id("epic_evolution")] // Requires epic evolution first
-        },
-        {
-            id: "evolution_progression",
-            name: "Evolution Mastery",
-            description: "Master the art of evolving your Totem through different stages",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.Progression,
-            badgeUri: "ipfs://badge/evolution/progression",
-            subType: ethers.id("evolution"),
-            requirements: [], // Base progression achievement
-            milestones: [
-                {
-                    name: "First Evolution",
-                    description: "Evolve your first totem to stage 2",
-                    badgeUri: "ipfs://badge/evolution/stage1",
-                    requirement: 1
-                },
-                {
-                    name: "Adept Evolution",
-                    description: "Evolve a totem to stage 3",
-                    badgeUri: "ipfs://badge/evolution/stage2",
-                    requirement: 2
-                },
-                {
-                    name: "Master Evolution",
-                    description: "Evolve a totem to stage 4 - Unlocks Epic rarity",
-                    badgeUri: "ipfs://badge/evolution/stage3",
-                    requirement: 3
-                },
-                {
-                    name: "Elder Evolution",
-                    description: "Evolve a totem to stage 5 - Unlocks Legendary rarity",
-                    badgeUri: "ipfs://badge/evolution/stage4",
-                    requirement: 4
-                }
-            ]
-        },
-        {
-            id: "color_collector_evolution",
-            name: "Chromatic Mastery",
-            description: "Evolve totems of all unique colors to Elder stage",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
-            badgeUri: "ipfs://badge/evolution/chromatic",
-            subType: ethers.id("color"),
-            milestones: [],
-            requirements: [ethers.id("legendary_evolution")]
-        },
-        {
-            id: "mixed_affinity_evolution",
-            name: "Balanced Spirit Keeper",
-            description: "Evolve totems with different affinities to their maximum potential",
-            category: AchievementCategory.Evolution,
-            type: AchievementType.Progression,
-            badgeUri: "ipfs://badge/evolution/balanced",
-            subType: ethers.id("affinity"),
-            requirements: [],
-            milestones: [
-                {
-                    name: "Dual Affinity Harmony",
-                    description: "Evolve totems from 2 different affinities",
-                    badgeUri: "ipfs://badge/evolution/dual-affinity",
-                    requirement: 2
-                },
-                {
-                    name: "Triforce of Spirits",
-                    description: "Evolve totems from 3 different affinities",
-                    badgeUri: "ipfs://badge/evolution/tri-affinity",
-                    requirement: 3
-                }
-            ]
-        }
-    ];
-
-    // One-time achievements for collection, rarity discoveries
+    // Achievements for collection, rarity discoveries
     const collectionAchievements = [
         {
             id: "rare_collector",
@@ -146,8 +39,8 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/rare",
             subType: ethers.id("rarity"),
-            milestones: [],
-            requirements: []
+            requirements: [],
+            milestones: []
         },
         {
             id: "epic_collector",
@@ -157,8 +50,8 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/epic",
             subType: ethers.id("rarity"),
-            milestones: [],
-            requirements: [ethers.id("rare_collector")] // Need rare first
+            requirements: [],
+            milestones: []
         },
         {
             id: "legendary_collector",
@@ -168,8 +61,8 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/legendary",
             subType: ethers.id("rarity"),
-            milestones: [],
-            requirements: [ethers.id("epic_collector")] // Need epic first
+            requirements: [],
+            milestones: []
         },
         {
             id: "collector_progression",
@@ -270,7 +163,7 @@ async function main() {
                     description: "24 totems of the same affinity reveal the depths of your specialized knowledge",
                     badgeUri: "ipfs://badge/collection/affinity-master"
                 }
-            ]
+            ],
         },
         {
             id: "affinity_diversity",
@@ -280,7 +173,10 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/collection/essence-harmonizer",
             subType: ethers.id("affinity"),
-            requirements: [ethers.id("rare_collector")],
+            requirements: [{
+                achievementId: ethers.id("rare_collector"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
             milestones: []
         },
         {
@@ -321,7 +217,10 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/collection/comain-wayfarer",
             subType: ethers.id("domain"),
-            requirements: [ethers.id("rare_collector")],
+            requirements: [{
+                achievementId: ethers.id("rare_collector"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
             milestones: []
         },
         {
@@ -381,6 +280,183 @@ async function main() {
                     description: "Ten seasonal totems make you a true chronicler of mystical celebrations",
                     badgeUri: "ipfs://badge/seasonal/archiver",
                     requirement: 10
+                }
+            ]
+        }
+    ];
+
+    // Initialize default achievements
+    const evolutionAchievements = [
+        {
+            id: "rare_evolution",
+            name: "Rare Elder Evolution",
+            description: "Evolve a Rare totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/rare",
+            subType: ethers.id("rarity_evolution"),
+            requirements: [{
+                achievementId: ethers.id("rare_collector"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
+            milestones: []
+        },
+        {
+            id: "epic_evolution",
+            name: "Epic Elder Evolution",
+            description: "Evolve an Epic totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/epic",
+            subType: ethers.id("rarity_evolution"),
+            requirements: [{
+                achievementId: ethers.id("epic_collector"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
+            milestones: []
+        },
+        {
+            id: "legendary_evolution",
+            name: "Legendary Elder Evolution",
+            description: "Evolve a Legendary totem to Elder",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/legendary",
+            subType: ethers.id("rarity_evolution"),
+            requirements: [{
+                achievementId: ethers.id("legendary_collector"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
+            milestones: []
+        },
+        {
+            id: "evolution_progression",
+            name: "Evolution Mastery",
+            description: "Master the art of evolving your Totem through different stages",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.Progression,
+            badgeUri: "ipfs://badge/evolution/progression",
+            subType: ethers.id("evolution"),
+            requirements: [], // Base progression achievement
+            milestones: [
+                {
+                    name: "First Evolution",
+                    description: "Evolve your first totem to stage 2",
+                    badgeUri: "ipfs://badge/evolution/stage1",
+                    requirement: 1
+                },
+                {
+                    name: "Adept Evolution",
+                    description: "Evolve a totem to stage 3",
+                    badgeUri: "ipfs://badge/evolution/stage2",
+                    requirement: 2
+                },
+                {
+                    name: "Master Evolution",
+                    description: "Evolve a totem to stage 4 - Unlocks Epic rarity",
+                    badgeUri: "ipfs://badge/evolution/stage3",
+                    requirement: 3
+                },
+                {
+                    name: "Elder Evolution",
+                    description: "Evolve a totem to stage 5 - Unlocks Legendary rarity",
+                    badgeUri: "ipfs://badge/evolution/stage4",
+                    requirement: 4
+                }
+            ]
+        },
+        {
+            id: "prestige_progression",
+            name: "Prestige Collective",
+            description: "Accumulate prestige levels across your totems, showcasing your mastery of totem evolution and growth",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.Progression,
+            badgeUri: "ipfs://badge/prestige/progression",
+            subType: ethers.id("prestige"),
+            requirements: [{
+                achievementId: ethers.id("evolution_progression"),
+                milestoneIndex: 3 // Stage 4
+            }],
+            milestones: [
+                {
+                    name: "Emerging Collective",
+                    description: "Your first totem begins to transcend their elder stage",
+                    badgeUri: "ipfs://badge/prestige/collective1",
+                    requirement: 1
+                },
+                {
+                    name: "Collective Wisdom",
+                    description: "Your totems are gaining collective experience, showing the depth of your nurturing and training",
+                    badgeUri: "ipfs://badge/prestige/collective3",
+                    requirement: 3
+                },
+                {
+                    name: "Legendary Guardians",
+                    description: "Your totem collection begins to resonate with ancient knowledge, each totem contributing to a greater mystical understanding",
+                    badgeUri: "ipfs://badge/prestige/collective5",
+                    requirement: 5
+                },
+                {
+                    name: "Ethereal Convergence",
+                    description: "Your totems are evolving beyond individual limitations, creating a powerful collective consciousness",
+                    badgeUri: "ipfs://badge/prestige/collective10",
+                    requirement: 10
+                },
+                {
+                    name: "Cosmic Resonance",
+                    description: "Your totem collection has reached a level of prestige that few thought possible, weaving a tapestry of magical potential",
+                    badgeUri: "ipfs://badge/prestige/collective25",
+                    requirement: 25
+                },
+                {
+                    name: "Realm Shapers",
+                    description: "Your totems have collectively ascended to a plane of existence that challenges the very foundations of magical understanding",
+                    badgeUri: "ipfs://badge/prestige/collective50",
+                    requirement: 50
+                },
+                {
+                    name: "Infinite Pantheon",
+                    description: "A legendary achievement that represents the ultimate collective evolution of totems, transcending all known boundaries of magical potential",
+                    badgeUri: "ipfs://badge/prestige/collective100",
+                    requirement: 100
+                }
+            ]
+        },
+        {
+            id: "color_collector_evolution",
+            name: "Chromatic Mastery",
+            description: "Evolve totems of all unique colors to Elder stage",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.OneTime,
+            badgeUri: "ipfs://badge/evolution/chromatic",
+            subType: ethers.id("color"),
+            requirements: [{
+                achievementId: ethers.id("evolution_progression"),
+                milestoneIndex: 3 // Stage 4
+            }],
+            milestones: []
+        },
+        {
+            id: "mixed_affinity_evolution",
+            name: "Balanced Spirit Keeper",
+            description: "Evolve totems with different affinities to their maximum potential",
+            category: AchievementCategory.Evolution,
+            type: AchievementType.Progression,
+            badgeUri: "ipfs://badge/evolution/balanced",
+            subType: ethers.id("affinity"),
+            requirements: [],
+            milestones: [
+                {
+                    name: "Dual Affinity Harmony",
+                    description: "Evolve totems from 2 different affinities",
+                    badgeUri: "ipfs://badge/evolution/dual-affinity",
+                    requirement: 2
+                },
+                {
+                    name: "Triforce of Spirits",
+                    description: "Evolve totems from 3 different affinities",
+                    badgeUri: "ipfs://badge/evolution/tri-affinity",
+                    requirement: 3
                 }
             ]
         }
@@ -779,8 +855,8 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/challenge/initiate",
             subType: ethers.id("challenge"),
-            milestones: [],
-            requirements: []
+            requirements: [],
+            milestones: []
         },
         {
             id: "challenge_progression",
@@ -790,7 +866,10 @@ async function main() {
             type: AchievementType.Progression,
             badgeUri: "ipfs://badge/challenge/progression",
             subType: ethers.id("challenge"),
-            requirements: [ethers.id("challenge_initiate")],
+            requirements: [{
+                achievementId: ethers.id("challenge_initiate"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
             milestones: [
                 {
                     name: "Challenge Seeker",
@@ -847,8 +926,8 @@ async function main() {
             type: AchievementType.OneTime,
             badgeUri: "ipfs://badge/expedition/explorer",
             subType: ethers.id("expedition"),
-            milestones: [],
-            requirements: []
+            requirements: [],
+            milestones: []
         },
         {
             id: "expedition_progression",
@@ -858,7 +937,10 @@ async function main() {
             type: AchievementType.Progression,
             badgeUri: "ipfs://badge/expedition/progression",
             subType: ethers.id("expedition"),
-            requirements: [ethers.id("expedition_explorer")],
+            requirements: [{
+                achievementId: ethers.id("expedition_explorer"),
+                milestoneIndex: ONETIME_REQUIREMENT
+            }],
             milestones: [
                 {
                     name: "Expedition Seeker",
@@ -907,8 +989,8 @@ async function main() {
     ];
 
     const achievementConfigs = [
-        ...evolutionAchievements,
         ...collectionAchievements,
+        ...evolutionAchievements,
         ...streakAchievements,
         ...actionAchievements,
         ...challengeAchievements,

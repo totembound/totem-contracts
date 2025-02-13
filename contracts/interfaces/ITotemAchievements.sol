@@ -30,6 +30,11 @@ interface ITotemAchievements {
         uint256 lastUpdate;     // Last update timestamp
     }
 
+    struct AchievementRequirement {
+        bytes32 achievementId;      // ID of required achievement
+        uint256 milestoneIndex;     // Required milestone index (-1 or max uint for full completion)
+    }
+
     struct Achievement {
         string name;
         string description;
@@ -39,8 +44,8 @@ interface ITotemAchievements {
         bytes32 subType;        // e.g., "feed_count" for Action type
         string badgeUri;        // OneTime achievements use this
         Milestone[] milestones; // Progression achievements use these
+        AchievementRequirement[] requirements; // Achievement IDs required before this can be unlocked
         mapping(string => string) metadata;  // For extensibility
-        bytes32[] requirements; // Achievement IDs required before this can be unlocked
     }
 
     struct AchievementConfig {
@@ -52,7 +57,7 @@ interface ITotemAchievements {
         string badgeUri;
         bytes32 subType;
         Milestone[] milestones;
-        bytes32[] requirements;
+        AchievementRequirement[] requirements;
     }
 
     struct AchievementView {
@@ -65,7 +70,7 @@ interface ITotemAchievements {
         bytes32 subType;
         bool enabled;
         Milestone[] milestones;
-        bytes32[] requirements;
+        AchievementRequirement[] requirements;
         bool isCompleted;
         uint256 currentCount;
     }
@@ -84,6 +89,7 @@ interface ITotemAchievements {
         uint256 count;
         bool achieved;
         bool[] unlockedMilestones;
+        bool requirementsMet;
     }
     
     // Core functions
@@ -104,7 +110,7 @@ interface ITotemAchievements {
         bytes32 subType,
         bool enabled,
         Milestone[] memory milestones,
-        bytes32[] memory requirements
+        AchievementRequirement[] memory requirements
     );
     function getAchievementsByCategory(AchievementCategory category) external view returns (
         AchievementView[] memory

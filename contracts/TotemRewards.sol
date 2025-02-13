@@ -327,7 +327,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
         
         UserTracking storage tracking = _userTracking[rewardId][user];
-        RewardInfo storage reward = _rewardInfo[rewardId];
         
         // If first time claim or can claim now, return 0
         if (tracking.lastClaim == 0 || _canClaim(rewardId, user)) {
