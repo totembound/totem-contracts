@@ -219,7 +219,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         
         // Calculate value based on stage and rarity
         
-        (,,TotemNFT.Rarity rarity,,,uint256 stage,,) = totemNFT.attributes(tokenId);
+        (,,TotemNFT.Rarity rarity,,,uint256 stage,,,) = totemNFT.attributes(tokenId);
         uint256 baseValue = 100 * 10**18; // 100 TOTEM base value
         uint256 stageMultiplier = stage + 1; // Higher stages worth more
         uint256 rarityMultiplier = uint256(rarity) + 1; // Rarer Totems worth more
@@ -454,7 +454,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!config.enabled) return false;
 
         // Get current attributes
-        (,,,uint256 happiness,,,,) = totemNFT.attributes(tokenId);
+        (,,,uint256 happiness,,,,,) = totemNFT.attributes(tokenId);
         if (happiness < config.minHappiness) {
             // Insufficient happiness
             return false;
@@ -516,6 +516,15 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
+    function _calculatePrestigeBonus(uint256 tokenId, uint256 baseReward) internal view returns (uint256) {
+        // Get prestige info from NFT
+        (uint256 prestigeLevel,) = totemNFT.getPrestigeInfo(tokenId);
+        
+        // 5% bonus per prestige level, capped at 100% (20 levels)
+        uint256 bonusPercentage = _min(prestigeLevel * 5, 100);
+        return baseReward + (baseReward * bonusPercentage / 100);
+    }
+
     // Helper functions
     // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -543,6 +552,14 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         else {
             return msg.data;
         }
+    }
+
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
     }
 
     receive() external payable {}
