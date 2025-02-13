@@ -167,7 +167,7 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         bytes32 subType,
         bool enabled,
         Milestone[] memory milestones,
-        bytes32[] memory requirements
+        AchievementRequirement[] memory requirements
     ) {
         Achievement storage achievement = _achievements[id];
         if (bytes(achievement.name).length == 0) revert AchievementNotFound();
@@ -209,7 +209,8 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
                     milestonesMemory[j] = achievement.milestones[j];
                 }
 
-                bytes32[] memory requirementsMemory = new bytes32[](achievement.requirements.length);
+                AchievementRequirement[] memory requirementsMemory = 
+                    new AchievementRequirement[](achievement.requirements.length);
                 for(uint256 j = 0; j < achievement.requirements.length; j++) {
                     requirementsMemory[j] = achievement.requirements[j];
                 }
@@ -347,6 +348,10 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
 
         AchievementProgress storage progress = _userProgress[user][id];
         
+        // Check requirements
+        bool requirementsMet = _checkRequirements(id, user);
+
+        // Check milestones
         bool[] memory milestoneStatus;
         if (achievement.achievementType == AchievementType.Progression) {
             milestoneStatus = new bool[](achievement.milestones.length);
@@ -363,7 +368,8 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
             lastUpdate: progress.lastUpdate,
             count: progress.count,
             achieved: userAchievements[user][id],
-            unlockedMilestones: milestoneStatus
+            unlockedMilestones: milestoneStatus,
+            requirementsMet: requirementsMet
         });
     }
 
@@ -440,13 +446,19 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
         // Check requirements are met if any
         if (config.requirements.length > 0) {
             for (uint256 i = 0; i < config.requirements.length; i++) {
-                if (!_achievements[config.requirements[i]].enabled) {
+                AchievementRequirement memory req = config.requirements[i];
+                if (!_achievements[req.achievementId].enabled) {
                     revert RequirementsNotMet();
+                }
+                // Validate milestone index for progression achievements
+                if (_achievements[req.achievementId].achievementType == AchievementType.Progression &&
+                    req.milestoneIndex != type(uint256).max &&
+                    req.milestoneIndex >= _achievements[req.achievementId].milestones.length) {
+                    revert InvalidRequirement();
                 }
             }
             achievement.requirements = config.requirements;
         }
-
 
         // Basic setup
         achievement.name = config.name;
@@ -473,6 +485,49 @@ contract TotemAchievements is Initializable, OwnableUpgradeable, UUPSUpgradeable
             config.achievementType,
             config.subType
         );
+    }
+
+    function _checkRequirements(
+        bytes32 achievementId,
+        address user
+    ) internal view returns (bool) {
+        Achievement storage achievement = _achievements[achievementId];
+        
+        // If no requirements, automatically pass
+        if (achievement.requirements.length == 0) return true;
+        
+        // Check each requirement
+        for (uint256 i = 0; i < achievement.requirements.length; i++) {
+            AchievementRequirement memory req = achievement.requirements[i];
+            Achievement storage requiredAchievement = _achievements[req.achievementId];
+            
+            // For one-time achievements, just check if completed
+            if (requiredAchievement.achievementType == AchievementType.OneTime) {
+                if (!userAchievements[user][req.achievementId]) {
+                    return false;
+                }
+            }
+            // For progression achievements, check specific milestone or full completion
+            else {
+                // If milestoneIndex is max uint, check all milestones
+                if (req.milestoneIndex == type(uint256).max) {
+                    for (uint256 j = 0; j < requiredAchievement.milestones.length; j++) {
+                        if (!_userMilestones[user][req.achievementId][j]) {
+                            return false;
+                        }
+                    }
+                }
+                // Otherwise check specific milestone
+                else {
+                    if (req.milestoneIndex >= requiredAchievement.milestones.length ||
+                        !_userMilestones[user][req.achievementId][req.milestoneIndex]) {
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        return true;
     }
 
     // solhint-disable-next-line
