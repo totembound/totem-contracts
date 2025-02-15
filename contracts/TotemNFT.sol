@@ -89,17 +89,16 @@ contract TotemNFT is
     mapping(uint256 => TotemAttributes) public attributes;
     ITotemAchievements public achievements;
     ITotemRandomOracle public randomOracle;
-
-    // Mapping for complete IPFS hashes: species => color => stage => hash
-    mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
-
-    // Mapping to control which colors are valid for each rarity
-    mapping(Rarity => mapping(Color => bool)) public validColorForRarity;
-
     // Experience thresholds for each stage
     uint256[4] public stageThresholds;
     uint256 public prestigeXpThreshold;
     uint256 public prestigeXpThresholdLevels;
+    // Mapping to control which colors are valid for each rarity
+    mapping(Rarity => mapping(Color => bool)) public validColorForRarity;
+    
+    // Mapping for complete IPFS hashes: species => color => stage => hash
+    mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
+    uint256 private _nextTokenId;
 
     // Constants
     uint256 private constant _MAX_STAGE = 4;
@@ -143,7 +142,8 @@ contract TotemNFT is
         Species species
     ) external onlyOwner returns (uint256) {
         if (species == Species.None) revert InvalidSpecies();
-        uint256 tokenId = totalSupply() + 1;
+        // Increment the next token ID
+        _nextTokenId++;
         
         // Request randomness for rarity and color
         uint256 requestId = randomOracle.requestRandomness(2);
@@ -157,6 +157,7 @@ contract TotemNFT is
 
         if (Color(color) == Color.None) revert NoValidColorForRarity();
 
+        uint256 tokenId = _nextTokenId;
         attributes[tokenId] = TotemAttributes({
             species: species,
             color: Color(color),

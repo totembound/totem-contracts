@@ -304,8 +304,12 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         RewardInfo storage reward = _rewardInfo[rewardId];
         UserTracking storage tracking = _userTracking[rewardId][user];
         
-        uint256 nextClaimTime = tracking.lastClaim + reward.config.interval;
-        uint256 gracePeriodEnd = nextClaimTime + reward.config.gracePeriod;
+        (
+            uint256 nextClaimTime,
+            uint256 gracePeriodEnd,
+            bool canClaim
+        ) = _getNextClaimWindow(tracking, reward.config);
+        
         bool isProtected = tracking.protectionExpiry >= block.timestamp;
         
         return StreakStatus({
@@ -313,7 +317,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             bestStreak: tracking.bestStreak,
             nextClaimTime: nextClaimTime,
             gracePeriodEnd: gracePeriodEnd,
-            canClaim: _canClaim(rewardId, user),
+            canClaim: canClaim,
             isProtected: isProtected,
             protectionExpiry: tracking.protectionExpiry
         });
@@ -444,24 +448,9 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             return false;
         }
 
-          // Calculate UTC midnight for last claim and current time
-        uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
-        uint256 currentMidnight = _getUTCMidnight(block.timestamp);
+        (, , bool canClaim) = _getNextClaimWindow(tracking, reward.config);
 
-        // Check if it's a new day (past midnight UTC)
-        if (currentMidnight > lastClaimMidnight) {
-            // Within grace period of current day
-            if (block.timestamp <= currentMidnight + reward.config.gracePeriod) {
-                return true;
-            }
-            
-            // If outside grace period but protected, allow claim
-            if (tracking.protectionExpiry >= block.timestamp) {
-                return true;
-            }
-        }
-
-        return false;
+        return canClaim;
     }
 
     function _msgSender() internal view override returns (address sender) {
@@ -486,6 +475,43 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             }
         }
         return false;
+    }
+
+    function _getNextClaimWindow(
+        UserTracking storage tracking,
+        RewardConfig memory config
+    ) internal view returns (
+        uint256 nextClaimTime,
+        uint256 gracePeriodEnd,
+        bool canClaim
+    ) {
+        uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
+        uint256 currentMidnight = _getUTCMidnight(block.timestamp);
+        
+        // First time claim
+        if (tracking.lastClaim == 0) {
+            return (
+                block.timestamp,  // Can claim immediately
+                block.timestamp + config.gracePeriod,
+                true
+            );
+        }
+
+        // Regular claim window
+        if (currentMidnight > lastClaimMidnight) {
+            // Can claim after midnight UTC
+            nextClaimTime = currentMidnight;
+            gracePeriodEnd = currentMidnight + config.gracePeriod;
+            canClaim = (block.timestamp <= gracePeriodEnd) || 
+                    (tracking.protectionExpiry >= block.timestamp);
+        } else {
+            // Already claimed today
+            nextClaimTime = currentMidnight + 1 days;
+            gracePeriodEnd = nextClaimTime + config.gracePeriod;
+            canClaim = false;
+        }
+
+        return (nextClaimTime, gracePeriodEnd, canClaim);
     }
 
     function _msgData() internal view override returns (bytes calldata) {

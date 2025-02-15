@@ -17,6 +17,7 @@ error PurchaseFailed();
 error ActionNotAvailable();
 error PaymentFailed();
 error InvalidAddress();
+error InvalidTokenId();
 error InvalidSignupReward();
 error InvalidMintPrice();
 error InvalidWindow1();
@@ -30,6 +31,7 @@ error InsufficientPolBalance();
 error NoPolToWithdraw();
 error InvalidSpecies();
 error NotTokenOwner();
+error TotemNotAvailable();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core structs for Game configuration
@@ -75,6 +77,21 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         mapping(ActionType => ActionConfig) actionConfigs;
     }
 
+    struct UnboundTotem {
+        uint256 tokenId;
+        address previousOwner;
+        uint256 sellPrice;
+        // Include relevant attributes from the NFT
+        TotemNFT.Species species;
+        TotemNFT.Color color;
+        TotemNFT.Rarity rarity;
+        uint256 happiness;
+        uint256 experience;
+        uint256 stage;
+        string displayName;
+        uint256 prestigeLevel;
+    }
+
     // State variables
     TotemToken public totemToken;
     TotemNFT public totemNFT;
@@ -83,7 +100,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     GameParameters public gameParams;
     TimeWindows public timeWindows;
     mapping(address => bool) public hasSignedUp;
-    
+    mapping(uint256 => UnboundTotem) public unboundTotems;
+    uint256[] private unboundTokenIds;
+
     // Action configuration and tracking
     mapping(ActionType => ActionConfig) public actionConfigs;
     mapping(uint256 => mapping(ActionType => ActionTracking)) public actionTracking;
@@ -100,8 +119,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ActionConfigUpdated(ActionType indexed actionType, ActionConfig config);
     event ActionPerformed(uint256 indexed tokenId, ActionType actionType);
     event UserSignedUp(address indexed user);
-    event TotemPurchased(address indexed user, uint256 indexed tokenId, TotemNFT.Species species);
+    event TotemPurchased(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TotemSold(address indexed user, uint256 indexed tokenId, uint256 amount);
+    event TotemUnbound(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
     
@@ -195,7 +215,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // This is where users spend TOTEM to get their NFT
-    function purchaseTotem(uint8 speciesId) external {
+    function purchaseTotem(uint8 speciesId) external returns (uint256 tokenId) {
         address user = _msgSender();
         if (!hasSignedUp[user]) revert NotSignedUp();
         if (speciesId >= uint8(TotemNFT.Species.None)) revert InvalidSpecies();
@@ -205,34 +225,83 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             revert PurchaseFailed();
         
         // Mint their chosen totem
-        uint256 tokenId = totemNFT.mint(user, TotemNFT.Species(speciesId));
+        tokenId = totemNFT.mint(user, TotemNFT.Species(speciesId));
 
          // Initialize action tracking
         _initializeActionTracking(tokenId);
 
-        emit TotemPurchased(user, tokenId, TotemNFT.Species(speciesId));
+        emit TotemPurchased(user, tokenId, gameParams.mintPrice);
+
+        return tokenId;
     }
 
     function sellTotem(uint256 tokenId) external {
         address user = _msgSender();
         require(totemNFT.ownerOf(tokenId) == user, "Not token owner");
         
+        (TotemNFT.Species species,
+         TotemNFT.Color color,
+         TotemNFT.Rarity rarity,
+         uint256 happiness,
+         uint256 experience,
+         uint256 stage,
+         ,
+         string memory displayName,
+         uint256 prestigeLevel
+        ) = totemNFT.attributes(tokenId);
+
         // Calculate value based on stage and rarity
-        
-        (,,TotemNFT.Rarity rarity,,,uint256 stage,,,) = totemNFT.attributes(tokenId);
-        uint256 baseValue = 100 * 10**18; // 100 TOTEM base value
-        uint256 stageMultiplier = stage + 1; // Higher stages worth more
-        uint256 rarityMultiplier = uint256(rarity) + 1; // Rarer Totems worth more
-        
-        uint256 sellValue = baseValue * stageMultiplier * rarityMultiplier / 10;
-        
+        uint256 sellValue = _calculateSellPrice(stage, rarity);
+
         // Transfer TOTEM tokens to seller
         totemToken.transfer(user, sellValue);
         
-        // Burn the NFT
-        totemNFT.burn(tokenId);
+        // Transfer NFT to game contract
+        totemNFT.transferFrom(user, address(this), tokenId);
+
+        // Store unbound totem data
+        unboundTotems[tokenId] = UnboundTotem({
+            tokenId: tokenId,
+            previousOwner: user,
+            sellPrice: sellValue,
+            species: species,
+            color: color,
+            rarity: rarity,
+            happiness: happiness,
+            experience: experience,
+            stage: stage,
+            displayName: displayName,
+            prestigeLevel: prestigeLevel
+        });
         
+        unboundTokenIds.push(tokenId);
+
         emit TotemSold(user, tokenId, sellValue);
+    }
+
+    function purchaseUnboundTotem(uint256 tokenId) external {
+        address user = _msgSender();
+        if (!hasSignedUp[user]) revert NotSignedUp();
+        
+        UnboundTotem memory totem = unboundTotems[tokenId];
+        if (totem.tokenId != tokenId) revert InvalidTokenId();
+        if (totemNFT.ownerOf(tokenId) != address(this)) revert TotemNotAvailable();
+        
+        // Calculate purchase price with +100 fee
+        uint256 purchasePrice = totem.sellPrice + 100;
+        
+        // Take payment
+        if (!totemToken.transferFrom(user, address(this), purchasePrice))
+            revert PaymentFailed();
+        
+        // Transfer totem to buyer
+        totemNFT.transferFrom(address(this), user, tokenId);
+        
+        // Remove from unbound collections
+        delete unboundTotems[tokenId];
+        _removeUnboundToken(tokenId);
+        
+        emit TotemUnbound(user, tokenId, purchasePrice);
     }
 
     // Convenience functions for actions
@@ -358,6 +427,44 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return actionTracking[tokenId][actionType];
     }
 
+    function getUnboundTotemCount() external view returns (uint256) {
+        return unboundTokenIds.length;
+    }
+
+    function getUnboundTokenIds(uint256 offset, uint256 limit) 
+        external 
+        view 
+        returns (uint256[] memory) 
+    {
+        uint256 end = offset + limit;
+        if (end > unboundTokenIds.length) {
+            end = unboundTokenIds.length;
+        }
+        
+        uint256[] memory ids = new uint256[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            ids[i - offset] = unboundTokenIds[i];
+        }
+        return ids;
+    }
+
+    function getUnboundTotems(uint256 offset, uint256 limit)
+        external
+        view
+        returns (UnboundTotem[] memory)
+    {
+        uint256 end = offset + limit;
+        if (end > unboundTokenIds.length) {
+            end = unboundTokenIds.length;
+        }
+        
+        UnboundTotem[] memory totems = new UnboundTotem[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            totems[i - offset] = unboundTotems[unboundTokenIds[i]];
+        }
+        return totems;
+    }
+
     // Action execution
     function executeAction(uint256 tokenId, ActionType actionType) public {
         address user = _msgSender();
@@ -439,6 +546,16 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         tracking.lastUsed = currentTime;
         tracking.dailyUses++;
+    }
+
+    function _removeUnboundToken(uint256 tokenId) internal {
+        for (uint256 i = 0; i < unboundTokenIds.length; i++) {
+            if (unboundTokenIds[i] == tokenId) {
+                unboundTokenIds[i] = unboundTokenIds[unboundTokenIds.length - 1];
+                unboundTokenIds.pop();
+                break;
+            }
+        }
     }
 
     // Action validation
@@ -552,6 +669,25 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         else {
             return msg.data;
         }
+    }
+
+    function _calculateSellPrice(uint256 stage, TotemNFT.Rarity rarity) internal pure returns (uint256) {
+        // Base calculations in TOTEM (with 18 decimals)
+        uint256 baseValue = 200 * 10**18;  // 200 TOTEM minimum
+        uint256 maxBonus = 200 * 10**18;   // 200 TOTEM maximum bonus
+        
+        // Calculate stage bonus (60% weight)
+        // stage is 0-4, so divide by 4 to get percentage (0-100%)
+        // multiply by 60% (60/100) for weight
+        uint256 stageBonus = (stage * maxBonus * 60) / (4 * 100);
+        // Calculate rarity bonus (40% weight)
+        // rarity is 0-4, so divide by 4 to get percentage (0-100%)
+        // multiply by 40% (40/100) for weight
+        uint256 rarityBonus = (uint256(rarity) * maxBonus * 40) / (4 * 100);
+        // Calculate final sell value
+        uint256 sellValue = baseValue + stageBonus + rarityBonus;
+        
+        return sellValue;
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
