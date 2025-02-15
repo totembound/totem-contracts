@@ -239,6 +239,85 @@ describe("TotemRewards", function () {
         });
     });
 
+    describe("UTC Midnight Transitions", function () {
+        it("Should correctly handle UTC midnight transitions with getStreakStatus", async function () {
+            // First claim
+            await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // Get current timestamp and find next UTC midnight
+            const currentTimestamp = await time.latest();
+            const currentMidnight = Math.floor(currentTimestamp / 86400) * 86400;
+            const nextMidnight = currentMidnight + 86400;
+        
+            // Move time to just before midnight
+            await safeIncreaseTo(nextMidnight - 60); // 1 minute before midnight
+            
+            // Check status before midnight
+            const statusBefore = await rewards.getStreakStatus(dailyRewardId, addr1.address);
+            const canClaimBefore = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
+            // Replace direct boolean check with explicit struct property access
+            expect(statusBefore[4]).to.be.false;  // canClaim is the 5th field in StreakStatus
+            expect(canClaimBefore).to.be.false;
+        
+            // Move time to just after midnight
+            await safeIncreaseTo(nextMidnight + 60); // 1 minute after midnight
+            
+            // Check status after midnight
+            const statusAfter = await rewards.getStreakStatus(dailyRewardId, addr1.address);
+            const canClaimAfter = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
+            expect(statusAfter[4]).to.be.true;  // canClaim is the 5th field
+            expect(canClaimAfter).to.be.true;
+            
+            // Verify nextClaimTime is set to midnight
+            expect(statusAfter[2]).to.equal(nextMidnight);  // nextClaimTime is 3rd field
+            
+            // Verify grace period is set correctly from midnight
+            expect(statusAfter[3]).to.equal(nextMidnight + dailyConfig.gracePeriod);  // gracePeriodEnd is 4th field
+        });
+    
+        it("Should maintain claim status through grace period after midnight", async function () {
+            // First claim
+            await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // Move to next midnight plus half grace period
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight + (dailyConfig.gracePeriod / 2));
+            
+            // Should be able to claim during grace period
+            const status = await rewards.getStreakStatus(dailyRewardId, addr1.address);
+            const canClaim = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
+            expect(status[4]).to.be.true;  // canClaim is 5th field
+            expect(canClaim).to.be.true;
+        });
+        
+        it("Should maintain consistent state between getStreakStatus and isClaimingAllowed", async function () {
+            // First claim
+            await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // Test at different times around midnight
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            
+            const testTimes = [
+                nextMidnight - 3600,    // 1 hour before midnight
+                nextMidnight + 60,      // Just after midnight
+                nextMidnight + (dailyConfig.gracePeriod / 2),  // Middle of grace period
+                nextMidnight + dailyConfig.gracePeriod + 60    // Just after grace period
+            ];
+        
+            for (const testTime of testTimes) {
+                await safeIncreaseTo(testTime);
+                
+                const status = await rewards.getStreakStatus(dailyRewardId, addr1.address);
+                const canClaim = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
+                
+                // Status should be consistent between both methods
+                expect(status[4]).to.equal(canClaim);  // canClaim is 5th field
+            }
+        });
+    });
+
     describe("Protection System", function () {
         beforeEach(async function () {
             // Set timestamp to UTC midnight
