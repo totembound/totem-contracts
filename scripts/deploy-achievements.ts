@@ -271,15 +271,21 @@ async function main() {
                 },
                 {
                     name: "Seasonal Curator",
-                    description: "Five seasonal totems show your dedication to preserving magical moments in time",
+                    description: "Three seasonal totems show your growing dedication to the preservation of mystical artifacts",
                     badgeUri: "ipfs://badge/seasonal/curator",
-                    requirement: 5
+                    requirement: 3
                 },
                 {
                     name: "Seasonal Archiver",
-                    description: "Ten seasonal totems make you a true chronicler of mystical celebrations",
+                    description: "Six seasonal totems make you a chronicler of rare and fleeting moments in time",
                     badgeUri: "ipfs://badge/seasonal/archiver",
-                    requirement: 10
+                    requirement: 6
+                },
+                {
+                    name: "Eternal Timekeeper",
+                    description: "Twelve seasonal totems secure your legacy as a guardian of history’s magical echoes",
+                    badgeUri: "ipfs://badge/seasonal/timekeeper",
+                    requirement: 12
                 }
             ]
         }

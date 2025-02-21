@@ -168,6 +168,28 @@ async function main() {
     const achievementsProxyAddress = await achievementsProxy.getAddress();
     console.log("Achievements Proxy deployed to:", achievementsProxyAddress);
 
+    // Deploy Challenges Implementation
+    console.log("\nDeploying Challenges Implementation...");
+    const TotemChallenges = await ethers.getContractFactory("TotemChallenges");
+    const challengesImplementation = await TotemChallenges.deploy();
+    await challengesImplementation.waitForDeployment();
+    const challengesImplementationAddress = await challengesImplementation.getAddress();
+    console.log("Challenges Implementation deployed to:", challengesImplementationAddress);
+    // Prepare Challenges initialization data
+    const initChallengesData = TotemChallenges.interface.encodeFunctionData("initialize", [
+    ]);
+
+    // Deploy Proxy for TotemChallenges
+    console.log("\nDeploying Challenges Proxy...");
+    const challengesProxy = await TotemProxy.deploy(
+        challengesImplementationAddress,
+        proxyAdminAddress,
+        initChallengesData
+    );
+    await challengesProxy.waitForDeployment();
+    const challengesProxyAddress = await challengesProxy.getAddress();
+    console.log("Challenges Proxy deployed to:", challengesProxyAddress);
+
     // Setup Achievements authorized contracts; TotemNFT, TotemGame, TotemRewards
     console.log("\nAuthorizing contracts to interact with achievements...");
     const achievements = await ethers.getContractAt("TotemAchievements", achievementsProxyAddress);
@@ -194,6 +216,14 @@ async function main() {
     const totemRewards = await ethers.getContractAt("TotemRewards", rewardsProxyAddress);
     await totemRewards.setAchievements(achievementsProxyAddress);
     console.log("TotemRewards authorized");
+
+    // Authorize TotemChallenges
+    console.log("Authorizing TotemChallenges...");
+    const authChallengesTx = await achievements.authorize(challengesProxyAddress);
+    await authChallengesTx.wait();
+    const totemChallenges = await ethers.getContractAt("TotemChallenges", challengesProxyAddress);
+    await totemChallenges.setAchievements(achievementsProxyAddress);
+    console.log("TotemChallenges authorized");
 
     // Setup random oracle in NFT contract
     console.log("\nSetting random oracle in NFT contract...");
@@ -238,8 +268,19 @@ async function main() {
     console.log("\nTransferring NFT ownership...");
     const transferOwnershipTx = await totemNFT.transferOwnership(gameProxyAddress);
     await transferOwnershipTx.wait();
-    console.log("NFT ownership transferred to proxy");
+    console.log("NFT ownership transferred to game proxy");
     
+    // Transfer Challenges ownership to Game Contract
+    console.log("Transferring ownership to game contract...");
+    const transferChallengesTx = await totemChallenges.transferOwnership(gameProxyAddress);
+    await transferChallengesTx.wait();
+    console.log("Challenges ownership transferred to game proxy");
+
+    // Add challenges contract to game
+    console.log("Setting challenges contract in game...");
+    await (await totemGame.setChallenges(challengesProxyAddress)).wait();
+    console.log("Challenges contract set in game");
+        
     // Set up Forwarder, transfer POL
     console.log("\nSetting proxy address in forwarder...");
     const setForwarderTx = await forwarder.setTargetContract(gameProxyAddress);
@@ -269,7 +310,9 @@ async function main() {
         rewardsProxy: rewardsProxyAddress,
         achievementsImplementation: achievementsImplementationAddress,
         achievementsProxy: achievementsProxyAddress,
-        deployer: deployer.address
+        challengesImplementation: challengesImplementationAddress,
+        challengesProxy: challengesProxyAddress,
+        deployer: deployer.address,
     };
     saveDeployment("localhost", deploymentInfo);
 

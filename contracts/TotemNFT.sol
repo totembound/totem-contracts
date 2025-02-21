@@ -69,7 +69,8 @@ contract TotemNFT is
         // Epic Colors
         EmeraldGreen, CrimsonRed, DeepSapphire,
         // Legendary Colors
-        RadiantGold, EtherealSilver,
+        EtherealSilver, RadiantGold,
+        // Special Colors
         None
     }
 
@@ -434,6 +435,59 @@ contract TotemNFT is
         return string(abi.encodePacked("ipfs://", hash));
     }
     
+    function getSpeciesBaseStats(
+        Species species,
+        Rarity rarity
+    ) external pure returns (
+        uint256 strength,
+        uint256 agility,
+        uint256 wisdom
+    ) {
+        // Calculate rarity bonus: Epic +1, Legendary +2, others +0
+        uint256 bonus = rarity == Rarity.Epic ? 1 : (rarity == Rarity.Legendary ? 2 : 0);
+
+        // Set base stats according to species
+        if (species == Species.Bear) {
+            return (12 + bonus, 5 + bonus, 7 + bonus);  // Strength primary
+        }
+        else if (species == Species.Wolf) {
+            return (11 + bonus, 8 + bonus, 5 + bonus);  // Strength primary
+        }
+        else if (species == Species.Beaver) {
+            return (10 + bonus, 5 + bonus, 9 + bonus);  // Strength primary
+        }
+        else if (species == Species.Salmon) {
+            return (10 + bonus, 8 + bonus, 6 + bonus);  // Strength primary
+        }
+        else if (species == Species.Owl) {
+            return (5 + bonus, 7 + bonus, 12 + bonus);  // Wisdom primary
+        }
+        else if (species == Species.Raven) {
+            return (5 + bonus, 8 + bonus, 11 + bonus);  // Wisdom primary
+        }
+        else if (species == Species.Goose) {
+            return (8 + bonus, 6 + bonus, 10 + bonus);  // Wisdom primary
+        }
+        else if (species == Species.Snake) {
+            return (7 + bonus, 6 + bonus, 11 + bonus);  // Wisdom primary
+        }
+        else if (species == Species.Falcon) {
+            return (5 + bonus, 12 + bonus, 7 + bonus);  // Agility primary
+        }
+        else if (species == Species.Deer) {
+            return (5 + bonus, 11 + bonus, 8 + bonus);  // Agility primary
+        }
+        else if (species == Species.Otter) {
+            return (9 + bonus, 10 + bonus, 5 + bonus);  // Agility primary
+        }
+        else if (species == Species.Woodpecker) {
+            return (7 + bonus, 11 + bonus, 6 + bonus);  // Agility primary
+        }
+        
+        // Default case for Species.None or any unhandled species
+        return (0, 0, 0);
+    }
+
     // Get the complete URI for a token
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();

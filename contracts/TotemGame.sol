@@ -5,6 +5,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
+import { ITotemChallenges } from "./interfaces/ITotemChallenges.sol";
 import { TotemToken } from "./TotemToken.sol";
 import { TotemNFT } from "./TotemNFT.sol";
 
@@ -32,6 +33,10 @@ error NoPolToWithdraw();
 error InvalidSpecies();
 error NotTokenOwner();
 error TotemNotAvailable();
+error ChallengeNotAvailable();
+error TotemIneligible();
+error InvalidScore();
+error DailyChallengesExceeded();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core structs for Game configuration
@@ -96,12 +101,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     TotemToken public totemToken;
     TotemNFT public totemNFT;
     ITotemAchievements public achievements;
+    ITotemChallenges public challenges;
     address public trustedForwarder;
     GameParameters public gameParams;
     TimeWindows public timeWindows;
     mapping(address => bool) public hasSignedUp;
     mapping(uint256 => UnboundTotem) public unboundTotems;
-    uint256[] private unboundTokenIds;
+    uint256[] private _unboundTokenIds;
 
     // Action configuration and tracking
     mapping(ActionType => ActionConfig) public actionConfigs;
@@ -122,6 +128,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event TotemPurchased(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TotemSold(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TotemUnbound(address indexed user, uint256 indexed tokenId, uint256 amount);
+    event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
     event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
     
@@ -253,12 +260,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Calculate value based on stage and rarity
         uint256 sellValue = _calculateSellPrice(stage, rarity);
 
-        // Transfer TOTEM tokens to seller
-        totemToken.transfer(user, sellValue);
-        
-        // Transfer NFT to game contract
-        totemNFT.transferFrom(user, address(this), tokenId);
-
         // Store unbound totem data
         unboundTotems[tokenId] = UnboundTotem({
             tokenId: tokenId,
@@ -274,7 +275,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             prestigeLevel: prestigeLevel
         });
         
-        unboundTokenIds.push(tokenId);
+        _unboundTokenIds.push(tokenId);
+
+        // Transfer NFT to game contract
+        totemNFT.transferFrom(user, address(this), tokenId);
+
+        // Transfer TOTEM tokens to seller
+        totemToken.transfer(user, sellValue);
 
         emit TotemSold(user, tokenId, sellValue);
     }
@@ -302,6 +309,72 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _removeUnboundToken(tokenId);
         
         emit TotemUnbound(user, tokenId, purchasePrice);
+    }
+
+    // Core challenge functions
+    function attemptChallenge(
+        bytes32 challengeId,
+        uint256 tokenId,
+        uint256 score
+    ) external {
+        address user = _msgSender();
+        if (totemNFT.ownerOf(tokenId) != user) revert NotTokenOwner();
+
+        // Get challenge info
+        (
+            ,
+            ,
+            ,
+            ,
+            ITotemChallenges.Requirements memory reqs,
+            ,
+            uint256 maxScore,
+            bool enabled
+        ) = challenges.getChallengeInfo(challengeId);
+
+        if (!enabled) revert ChallengeNotAvailable();
+
+        // Get totem attributes for validation
+        (
+            TotemNFT.Species species,
+            ,
+            TotemNFT.Rarity rarity,
+            ,
+            ,
+            uint256 stage,
+            ,
+            ,
+        ) = totemNFT.attributes(tokenId);
+
+        // Verify eligibility
+        if (stage + 1 < reqs.stage) revert TotemIneligible();
+
+        // Get base stats for species/rarity
+        (uint256 strength, uint256 agility, uint256 wisdom) = totemNFT.getSpeciesBaseStats(species, rarity);
+
+        // Check attribute requirements
+        if (strength < reqs.strength ||
+            agility < reqs.agility ||
+            wisdom < reqs.wisdom) {
+            revert TotemIneligible();
+        }
+
+        // Verify score is within bounds
+        if (score > maxScore) revert InvalidScore();
+
+        // Complete challenge and update state
+        challenges.completeChallenge(challengeId, user, tokenId, score);
+
+        // Award experience based on score percentage
+        uint256 expGain = challenges.calculateExperienceGain(score, maxScore);
+        totemNFT.updateAttributes(
+            tokenId,
+            10,  // Small happiness boost
+            true,
+            expGain
+        );
+
+        emit ChallengeCompleted(challengeId, tokenId, score);
     }
 
     // Convenience functions for actions
@@ -346,9 +419,37 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         totemNFT.setStageThresholds(thresholds);
     }
 
+    function configureChallenge(
+        bytes32 challengeId,
+        string memory name,
+        string memory description,
+        ITotemChallenges.ChallengeType challengeType,
+        ITotemChallenges.ChallengeAttribute attribute,
+        ITotemChallenges.Requirements memory requirements,
+        uint256 maxDailyAttempts,
+        uint256 maxScore,
+        bytes32 achievementId
+    ) external onlyOwner {
+        challenges.configureChallenge(challengeId, name, description, challengeType, attribute, 
+            requirements, maxDailyAttempts, maxScore, achievementId);
+    }
+
+    function setChallengeMetadata(
+        bytes32 challengeId,
+        string calldata key,
+        string calldata value
+    ) external onlyOwner {
+        challenges.setChallengeMetadata(challengeId, key, value);
+    }
+
     function setAchievements(address _achievements) external onlyOwner {
         if (_achievements == address(0)) revert InvalidAddress();
         achievements = ITotemAchievements(_achievements);
+    }
+
+    function setChallenges(address _challenges) external onlyOwner {
+        if (_challenges == address(0)) revert InvalidAddress();
+        challenges = ITotemChallenges(_challenges);
     }
 
     function updateActionConfig(
@@ -428,7 +529,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function getUnboundTotemCount() external view returns (uint256) {
-        return unboundTokenIds.length;
+        return _unboundTokenIds.length;
     }
 
     function getUnboundTokenIds(uint256 offset, uint256 limit) 
@@ -437,13 +538,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         returns (uint256[] memory) 
     {
         uint256 end = offset + limit;
-        if (end > unboundTokenIds.length) {
-            end = unboundTokenIds.length;
+        if (end > _unboundTokenIds.length) {
+            end = _unboundTokenIds.length;
         }
         
         uint256[] memory ids = new uint256[](end - offset);
         for (uint256 i = offset; i < end; i++) {
-            ids[i - offset] = unboundTokenIds[i];
+            ids[i - offset] = _unboundTokenIds[i];
         }
         return ids;
     }
@@ -454,15 +555,61 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         returns (UnboundTotem[] memory)
     {
         uint256 end = offset + limit;
-        if (end > unboundTokenIds.length) {
-            end = unboundTokenIds.length;
+        if (end > _unboundTokenIds.length) {
+            end = _unboundTokenIds.length;
         }
         
         UnboundTotem[] memory totems = new UnboundTotem[](end - offset);
         for (uint256 i = offset; i < end; i++) {
-            totems[i - offset] = unboundTotems[unboundTokenIds[i]];
+            totems[i - offset] = unboundTotems[_unboundTokenIds[i]];
         }
         return totems;
+    }
+
+    function canAttemptChallenge(
+        bytes32 challengeId,
+        uint256 tokenId
+    ) external view returns (bool) {
+        if (address(challenges) == address(0)) return false;
+
+        // Get challenge info
+        (
+            ,
+            ,
+            ,
+            ,
+            ITotemChallenges.Requirements memory reqs,
+            ,
+            ,
+            bool enabled
+        ) = challenges.getChallengeInfo(challengeId);
+
+        if (!enabled) return false;
+
+        // Get totem attributes
+        (
+            TotemNFT.Species species,
+            ,
+            TotemNFT.Rarity rarity,
+            ,
+            ,
+            uint256 stage,
+            ,
+            ,
+        ) = totemNFT.attributes(tokenId);
+
+        // Check stage requirement
+        if (stage + 1 < reqs.stage) return false;
+
+        // Get base stats
+        (uint256 strength, uint256 agility, uint256 wisdom) = totemNFT.getSpeciesBaseStats(species, rarity);
+
+        // Check attribute requirements
+        return (
+            strength >= reqs.strength &&
+            agility >= reqs.agility &&
+            wisdom >= reqs.wisdom
+        );
     }
 
     // Action execution
@@ -549,10 +696,10 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _removeUnboundToken(uint256 tokenId) internal {
-        for (uint256 i = 0; i < unboundTokenIds.length; i++) {
-            if (unboundTokenIds[i] == tokenId) {
-                unboundTokenIds[i] = unboundTokenIds[unboundTokenIds.length - 1];
-                unboundTokenIds.pop();
+        for (uint256 i = 0; i < _unboundTokenIds.length; i++) {
+            if (_unboundTokenIds[i] == tokenId) {
+                _unboundTokenIds[i] = _unboundTokenIds[_unboundTokenIds.length - 1];
+                _unboundTokenIds.pop();
                 break;
             }
         }
