@@ -359,11 +359,26 @@ describe("TotemNFT", function () {
         });
 
         it("Should fail setting metadata with invalid parameters", async function () {
-            await expect(nft.setMetadataURI(0, 16, 0, "hash")) // Invalid color
+            // Use Color.None (28) which should be an invalid color
+            await expect(nft.setMetadataURI(0, 28, 0, "hash"))
                 .to.be.revertedWithCustomError(nft, "InvalidColor");
                 
-            await expect(nft.setMetadataURI(0, 0, 5, "hash")) // Invalid stage
+            // Test invalid stage
+            await expect(nft.setMetadataURI(0, 0, 5, "hash"))
                 .to.be.revertedWithCustomError(nft, "InvalidStage");
+    
+            // Test invalid species
+            await expect(nft.setMetadataURI(12, 0, 0, "hash"))
+                .to.be.revertedWithCustomError(nft, "InvalidSpecies");
+        });
+    
+        it("Should accept special colors", async function () {
+            // Test setting metadata for special colors
+            await expect(nft.setMetadataURI(0, 17, 0, "hash")) // RosyPink
+                .to.not.be.reverted;
+            
+            await expect(nft.setMetadataURI(0, 18, 0, "hash")) // VerdantGold
+                .to.not.be.reverted;
         });
     });
 

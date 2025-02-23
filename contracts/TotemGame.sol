@@ -37,6 +37,10 @@ error ChallengeNotAvailable();
 error TotemIneligible();
 error InvalidScore();
 error DailyChallengesExceeded();
+error BundleNotAvailable();
+error BundleExpired();
+error InvalidAmount();
+error InvalidRarityRange();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core structs for Game configuration
@@ -97,6 +101,18 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 prestigeLevel;
     }
 
+    struct Bundle {
+        uint256 polCost;           // Cost in POL
+        uint256 tokenAmount;       // TOTEM token amount
+        TotemNFT.Species species;  // Specific species or None for random
+        TotemNFT.Color color;      // Specific color or None for random
+        TotemNFT.Rarity minRarity; // Minimum rarity for random NFTs
+        TotemNFT.Rarity maxRarity; // Maximum rarity for random NFTs
+        bool enabled;              // Whether bundle is available
+        bool isLimitedRarity;      // If true, NFT will be Limited rarity
+        uint256 validUntil;        // Unix timestamp when bundle expires (0 for no expiry)
+    }
+
     // State variables
     TotemToken public totemToken;
     TotemNFT public totemNFT;
@@ -108,6 +124,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => bool) public hasSignedUp;
     mapping(uint256 => UnboundTotem) public unboundTotems;
     uint256[] private _unboundTokenIds;
+    mapping(uint256 => Bundle) public bundles;
+    uint256 public nextBundleId;
 
     // Action configuration and tracking
     mapping(ActionType => ActionConfig) public actionConfigs;
@@ -131,7 +149,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
     event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
-    
+    event BundleCreated(uint256 indexed bundleId, Bundle bundle);
+    event BundlePurchased(address indexed user, uint256 indexed bundleId, uint256 tokenId, uint256 amount);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -244,7 +264,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function sellTotem(uint256 tokenId) external {
         address user = _msgSender();
-        require(totemNFT.ownerOf(tokenId) == user, "Not token owner");
+        if (user != totemNFT.ownerOf(tokenId)) revert NotTokenOwner();
         
         (TotemNFT.Species species,
          TotemNFT.Color color,
@@ -309,6 +329,55 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _removeUnboundToken(tokenId);
         
         emit TotemUnbound(user, tokenId, purchasePrice);
+    }
+
+    function purchaseBundle(uint256 bundleId) external payable returns (uint256 tokenId) {
+        address user = _msgSender();
+        if (!hasSignedUp[user]) revert NotSignedUp();
+
+        Bundle storage bundle = bundles[bundleId];
+        if (!bundle.enabled) revert BundleNotAvailable();
+        if (msg.value != bundle.polCost) revert InvalidAmount();
+        if (bundle.validUntil != 0 && block.timestamp > bundle.validUntil) revert BundleExpired();
+
+        // Check token balances
+        if (totemToken.balanceOf(address(this)) < bundle.tokenAmount) {
+            revert InsufficientTokens();
+        }
+        
+        // Transfer TOTEM tokens first
+        if (!totemToken.transfer(user, bundle.tokenAmount)) revert PaymentFailed();
+        
+        // Mint NFT
+        if (bundle.species == TotemNFT.Species.None) {
+            // Random species, nft will determine rarity and color with oracle
+            uint8 randomSpecies = uint8(block.timestamp % uint8(TotemNFT.Species.None));
+            tokenId = totemNFT.mintWithRarity(
+                user, 
+                TotemNFT.Species(randomSpecies),
+                bundle.minRarity,
+                bundle.maxRarity
+            );
+        } else {
+            // Specific species and possibly color
+            tokenId = totemNFT.mintLimited(
+                user,
+                bundle.species,
+                bundle.color,
+                bundle.isLimitedRarity ? TotemNFT.Rarity.Limited : bundle.minRarity
+            );
+        }
+
+        // Initialize tracking
+        _initializeActionTracking(tokenId);
+
+        // Forward POL to owner
+        (bool sent,) = payable(owner()).call{value: msg.value}("");
+        if (!sent) revert PolTransferFailed();
+
+        emit BundlePurchased(user, bundleId, tokenId, msg.value);
+
+        return tokenId;
     }
 
     // Core challenge functions
@@ -417,6 +486,37 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function setStageThresholds(uint256[4] calldata thresholds) external {
         totemNFT.setStageThresholds(thresholds);
+    }
+
+    function createBundle(
+        uint256 polCost,
+        uint256 tokenAmount,
+        TotemNFT.Species species,
+        TotemNFT.Color color,
+        TotemNFT.Rarity minRarity,
+        TotemNFT.Rarity maxRarity,
+        bool isLimitedRarity,
+        uint256 validUntil
+    ) external onlyOwner returns (uint256) {
+        if (polCost <= 0) revert InvalidAmount();
+        if (tokenAmount <= 0) revert InvalidAmount();
+        if (minRarity > maxRarity) revert InvalidRarityRange();
+        
+        uint256 bundleId = nextBundleId++;
+        bundles[bundleId] = Bundle({
+            polCost: polCost,
+            tokenAmount: tokenAmount,
+            species: species,
+            color: color,
+            minRarity: minRarity,
+            maxRarity: maxRarity,
+            enabled: true,
+            isLimitedRarity: isLimitedRarity,
+            validUntil: validUntil
+        });
+
+        emit BundleCreated(bundleId, bundles[bundleId]);
+        return bundleId;
     }
 
     function configureChallenge(

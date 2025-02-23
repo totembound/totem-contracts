@@ -26,6 +26,7 @@ error InvalidUTF8();
 error URINotSet();
 error InvalidAddress();
 error RandomRequestNotFulfilled();
+error InvalidRarityRange();
 
 contract TotemNFT is 
     Initializable, 
@@ -56,7 +57,8 @@ contract TotemNFT is
         Uncommon,   // 15%  - 4 colors
         Rare,       // 7%   - 3 colors
         Epic,       // 2.5% - 3 colors
-        Legendary   // 0.5% - 2 colors
+        Legendary,  // 0.5% - 2 colors
+        Limited     // Event/Bundle only
     }
 
     enum Color {
@@ -70,7 +72,10 @@ contract TotemNFT is
         EmeraldGreen, CrimsonRed, DeepSapphire,
         // Legendary Colors
         EtherealSilver, RadiantGold,
-        // Special Colors
+        // Limited Colors
+        FrostbiteBlue, RosyPink, VerdantGold, RaindropTeal,
+        FloralViolet, SunsetOrange, EmberRed, OceanicAzure,
+        HarvestGold, PhantomBlack, EmberwoodBrown, StarlitSilver,
         None
     }
 
@@ -96,9 +101,10 @@ contract TotemNFT is
     uint256 public prestigeXpThresholdLevels;
     // Mapping to control which colors are valid for each rarity
     mapping(Rarity => mapping(Color => bool)) public validColorForRarity;
-    
+
     // Mapping for complete IPFS hashes: species => color => stage => hash
     mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
+    mapping(address => mapping(bytes32 => bool)) private _specialVariantOwned;
     uint256 private _nextTokenId;
 
     // Constants
@@ -107,6 +113,7 @@ contract TotemNFT is
     bytes32 private constant _RARE_COLLECTOR_ACHIEVEMENT_ID = keccak256("rare_collector");
     bytes32 private constant _EPIC_COLLECTOR_ACHIEVEMENT_ID = keccak256("epic_collector");
     bytes32 private constant _LEGENDARY_COLLECTOR_ACHIEVEMENT_ID = keccak256("legendary_collector");
+    bytes32 private constant _SEASONAL_COLLECTOR_ACHIEVEMENT_ID = keccak256("seasonal_collector");
     bytes32 private constant _RARE_EVOLUTION_ACHIEVEMENT_ID = keccak256("rare_evolution");
     bytes32 private constant _EPIC_EVOLUTION_ACHIEVEMENT_ID = keccak256("epic_evolution");
     bytes32 private constant _LEGENDARY_EVOLUTION_ACHIEVEMENT_ID = keccak256("legendary_evolution");
@@ -143,8 +150,9 @@ contract TotemNFT is
         Species species
     ) external onlyOwner returns (uint256) {
         if (species == Species.None) revert InvalidSpecies();
-        // Increment the next token ID
-        _nextTokenId++;
+
+         // Get next token ID atomically
+        uint256 tokenId = _getNextTokenId();
         
         // Request randomness for rarity and color
         uint256 requestId = randomOracle.requestRandomness(2);
@@ -158,11 +166,12 @@ contract TotemNFT is
 
         if (Color(color) == Color.None) revert NoValidColorForRarity();
 
-        uint256 tokenId = _nextTokenId;
+        _safeMint(to, tokenId); // Mint before setting attributes
+        
         attributes[tokenId] = TotemAttributes({
             species: species,
             color: Color(color),
-            rarity: Rarity(rarity), // Rarity.Common,
+            rarity: Rarity(rarity),
             happiness: 50,
             experience: 0,
             stage: 0,
@@ -170,8 +179,6 @@ contract TotemNFT is
             displayName: "",
             prestigeLevel: 0
         });
-
-        _safeMint(to, tokenId);
 
         // Check for achievements
         if (address(achievements) != address(0)) {
@@ -187,6 +194,111 @@ contract TotemNFT is
                 achievements.unlockAchievement(_LEGENDARY_COLLECTOR_ACHIEVEMENT_ID, to);
             }
         }
+
+        return tokenId;
+    }
+
+    function mintWithRarity(
+        address to,
+        Species species,
+        Rarity minRarity,
+        Rarity maxRarity
+    ) external onlyOwner returns (uint256) {
+        if (species == Species.None) revert InvalidSpecies();
+        if (minRarity > maxRarity) revert InvalidRarityRange();
+
+        uint256 tokenId = _getNextTokenId();
+
+        // Request randomness for rarity and color selection
+        uint256 requestId = randomOracle.requestRandomness(2);
+        (bool fulfilled, uint256[] memory randomWords) = randomOracle.getRequestStatus(requestId);
+        if (!fulfilled) revert RandomRequestNotFulfilled();
+
+        // Get rarity within range if specified
+        uint8 rarity;
+        if (minRarity == maxRarity) {
+            rarity = uint8(minRarity);
+        } else {
+            // Calculate rarity within range
+            uint256 rarityRange = uint256(maxRarity) - uint256(minRarity) + 1;
+            uint256 randomRarity = uint256(minRarity) + (randomWords[0] % rarityRange);
+            rarity = uint8(randomRarity);
+        }
+
+        uint8 color = RandomnessHelper.getColorForRarity(randomWords[1], rarity);
+
+        _safeMint(to, tokenId);
+
+        attributes[tokenId] = TotemAttributes({
+            species: species,
+            color: Color(color),
+            rarity: Rarity(rarity),
+            happiness: 50,
+            experience: 0,
+            stage: 0,
+            isStaked: false,
+            displayName: "",
+            prestigeLevel: 0
+        });
+
+        // Check for achievements
+        if (address(achievements) != address(0)) {
+            achievements.updateProgress(_COLLECTOR_ACHIEVEMENT_ID, to, 1);
+
+            if (rarity == uint8(Rarity.Rare)) {
+                achievements.unlockAchievement(_RARE_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+            else if (rarity == uint8(Rarity.Epic)) {
+                achievements.unlockAchievement(_EPIC_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+            else if (rarity == uint8(Rarity.Legendary)) {
+                achievements.unlockAchievement(_LEGENDARY_COLLECTOR_ACHIEVEMENT_ID, to);
+            }
+        }
+
+        return tokenId;
+    }
+
+    function mintLimited(
+        address to,
+        Species species,
+        Color color,
+        Rarity rarity
+    ) external onlyOwner returns (uint256) {
+        if (species == Species.None) revert InvalidSpecies();
+        if (color == Color.None) revert InvalidColor();
+
+        uint256 tokenId = _getNextTokenId();
+
+        _safeMint(to, tokenId);
+
+        attributes[tokenId] = TotemAttributes({
+            species: species,
+            color: color,
+            rarity: rarity,
+            happiness: 50,
+            experience: 0,
+            stage: 0,
+            isStaked: false,
+            displayName: "",
+            prestigeLevel: 0
+        });
+        
+        // Check if user already owns this special variant
+        bytes32 variantHash = _getLimitedVariantHash(species, color, rarity);
+
+        // Check for achievements
+        if (address(achievements) != address(0)) {
+            achievements.updateProgress(_COLLECTOR_ACHIEVEMENT_ID, to, 1);
+
+            // Check if user already owns this special variant
+            if (!_specialVariantOwned[to][variantHash]) {
+                achievements.updateProgress(_SEASONAL_COLLECTOR_ACHIEVEMENT_ID, to, 1);
+            }
+        }
+
+        // Mark this variant as owned
+        _specialVariantOwned[to][variantHash] = true;
 
         return tokenId;
     }
@@ -318,8 +430,10 @@ contract TotemNFT is
         uint256 stage,
         string memory ipfsHash
     ) external onlyOwner {
+        if (uint8(species) >= uint8(Species.None)) revert InvalidSpecies();
         if (stage > 4) revert InvalidStage();
-        if (color == Color.None) revert InvalidColor();
+        if (uint8(color) >= uint8(Color.None)) revert InvalidColor();
+
         _metadataURIs[species][color][stage] = ipfsHash;
         emit MetadataURISet(species, color, stage, ipfsHash);
     }
@@ -346,8 +460,10 @@ contract TotemNFT is
             stages.length != ipfsHashes.length) revert ArrayLengthMismatch();
         
         for(uint256 i = 0; i < species.length; i++) {
+            if (uint8(species[i]) >= uint8(Species.None)) revert InvalidSpecies();
             if (stages[i] > 4) revert InvalidStage();
-            if (colors[i] == Color.None) revert InvalidColor();
+            if (uint8(colors[i]) >= uint8(Color.None)) revert InvalidColor();
+
             _metadataURIs[species[i]][colors[i]][stages[i]] = ipfsHashes[i];
             emit MetadataURISet(species[i], colors[i], stages[i], ipfsHashes[i]);
         }
@@ -443,8 +559,9 @@ contract TotemNFT is
         uint256 agility,
         uint256 wisdom
     ) {
-        // Calculate rarity bonus: Epic +1, Legendary +2, others +0
-        uint256 bonus = rarity == Rarity.Epic ? 1 : (rarity == Rarity.Legendary ? 2 : 0);
+        // Calculate rarity bonus: Epic/Limited +1, Legendary +2, others +0
+        uint256 bonus = rarity == Rarity.Epic || rarity == Rarity.Limited ? 1 : 
+                (rarity == Rarity.Legendary ? 2 : 0);
 
         // Set base stats according to species
         if (species == Species.Bear) {
@@ -511,6 +628,14 @@ contract TotemNFT is
     }
 
     // Helper functions
+    function _getLimitedVariantHash(
+        Species species,
+        Color color,
+        Rarity rarity
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(species, color, rarity));
+    }
+
     function _validateDisplayName(string memory str) internal pure returns (bool) {
         bytes memory b = bytes(str);
         if (b.length < 1 || b.length > 32) return false;
@@ -533,4 +658,11 @@ contract TotemNFT is
     // Upgrade authorization
     // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function _getNextTokenId() private returns (uint256) {
+        unchecked {
+            _nextTokenId += 1;  // Increment first
+            return _nextTokenId; // Return new value
+        }
+    }
 }
