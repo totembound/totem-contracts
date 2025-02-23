@@ -34,8 +34,20 @@ enum Color {
     EmeraldGreen,
     CrimsonRed,
     DeepSapphire,
-    RadiantGold,
     EtherealSilver,
+    RadiantGold,
+    FrostbiteBlue,
+    RosyPink,
+    VerdantGold,
+    RaindropTeal,
+    FloralViolet,
+    SunsetOrange,
+    EmberRed,
+    OceanicAzure,
+    HarvestGold,
+    PhantomBlack,
+    EmberwoodBrown,
+    StarlitSilver,
     None
 }
 
@@ -44,7 +56,8 @@ enum Rarity {
     Uncommon,
     Rare,
     Epic,
-    Legendary
+    Legendary,
+    Limited
 }
 
 async function main() {
@@ -130,8 +143,8 @@ async function main() {
 
     // Track NFT metrics
     const speciesCount = new Array(13).fill(0);
-    const rarityCount = new Array(5).fill(0);
-    const colorCount = new Array(20).fill(0); 
+    const rarityCount = new Array(6).fill(0);
+    const colorCount = new Array(29).fill(0); 
     const stageCount = new Array(5).fill(0);
 
     // Existing NFT iteration with added metrics...
@@ -163,7 +176,7 @@ async function main() {
 
     console.log("\nColor Distribution:");
     colorCount.forEach((count, index) => {
-        if (index < 16) {  // Don't show None
+        if (index < 28) {  // Don't show None
             const percentage = totalSupply > 0 
                 ? ((BigInt(count) * BigInt(100) * BigInt(100) / totalSupply) * BigInt(1)) / BigInt(100)
                 : BigInt(0);
@@ -172,10 +185,10 @@ async function main() {
     });
 
     console.log("\nColors by Rarity:");
-    for (let r = 0; r < 5; r++) {  // For each rarity
+    for (let r = 0; r < 6; r++) {  // For each rarity
         if (rarityCount[r] > 0) {  // Only show rarities that exist
             console.log(`\n${Rarity[r]}:`);
-            const colorsByRarity = new Array(20).fill(0);
+            const colorsByRarity = new Array(29).fill(0);
             
             // Count colors for this rarity
             for (let i = 1; i <= totalSupply; i++) {
@@ -187,7 +200,7 @@ async function main() {
             
             // Print colors for this rarity
             colorsByRarity.forEach((count, index) => {
-                if (count > 0 && index < 19) {  // Only show colors that exist
+                if (count > 0 && index < 29) {  // Only show colors that exist
                     const percentage = (Number(count) * 100 / Number(rarityCount[r])).toFixed(2);
                     console.log(`  ${Color[index]}: ${count} (${percentage}%)`);
                 }
