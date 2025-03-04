@@ -28,7 +28,6 @@ error InvalidActionCost();
 error InvalidHappinessChange();
 error InvalidExperienceGain();
 error InvalidForwarderAddress();
-error InsufficientPolBalance();
 error NoPolToWithdraw();
 error InvalidSpecies();
 error NotTokenOwner();
@@ -147,7 +146,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event TotemSold(address indexed user, uint256 indexed tokenId, uint256 amount);
     event TotemUnbound(address indexed user, uint256 indexed tokenId, uint256 amount);
     event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
-    event TrustedForwarderFunded(uint256 amount);
     event TrustedForwarderUpdated(address newForwarder);
     event BundleCreated(uint256 indexed bundleId, Bundle bundle);
     event BundlePurchased(address indexed user, uint256 indexed bundleId, uint256 tokenId, uint256 amount);
@@ -298,7 +296,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _unboundTokenIds.push(tokenId);
 
         // Transfer NFT to game contract
-        totemNFT.transferFrom(user, address(this), tokenId);
+        totemNFT.gameTransferFrom(user, address(this), tokenId);
 
         // Transfer TOTEM tokens to seller
         totemToken.transfer(user, sellValue);
@@ -315,7 +313,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (totemNFT.ownerOf(tokenId) != address(this)) revert TotemNotAvailable();
         
         // Calculate purchase price with +100 fee
-        uint256 purchasePrice = totem.sellPrice + 100;
+        uint256 purchasePrice = totem.sellPrice + 100 * 10**18;
         
         // Take payment
         if (!totemToken.transferFrom(user, address(this), purchasePrice))
@@ -566,17 +564,11 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function updateTrustedForwarder(address _newForwarder) external onlyOwner {
         if (_newForwarder == address(0)) revert InvalidForwarderAddress();
+
         trustedForwarder = _newForwarder;
+        totemNFT.updateTrustedForwarder(_newForwarder);
+
         emit TrustedForwarderUpdated(_newForwarder);
-    }
-
-    function fundTrustedForwarder(uint256 amount) external onlyOwner {
-        if (address(this).balance < amount) revert InsufficientPolBalance();
-    
-        (bool success, ) = payable(trustedForwarder).call{value: amount}("");
-        if (!success) revert PolTransferFailed();
-
-        emit TrustedForwarderFunded(amount);
     }
 
     function withdrawPol() external onlyOwner {

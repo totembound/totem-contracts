@@ -8,7 +8,7 @@ describe("TotemNFT", function () {
     const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
     beforeEach(async function () {
-        [owner, addr1, addr2] = await ethers.getSigners();
+        [owner, addr1, addr2, trustedForwarder] = await ethers.getSigners();
 
         // Deploy mock random oracle
         MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
@@ -25,7 +25,10 @@ describe("TotemNFT", function () {
         // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
         const nftImplementation = await TotemNFT.deploy();
-        const initNFTData = TotemNFT.interface.encodeFunctionData("initialize");
+        const initNFTData = TotemNFT.interface.encodeFunctionData(
+            "initialize", 
+            [trustedForwarder.address] // Use owner address as trusted forwarder for tests
+        );
 
         // Deploy proxy
         const TotemProxy = await ethers.getContractFactory("TotemProxy");

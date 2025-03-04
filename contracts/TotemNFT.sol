@@ -27,6 +27,7 @@ error URINotSet();
 error InvalidAddress();
 error RandomRequestNotFulfilled();
 error InvalidRarityRange();
+error InvalidForwarderAddress();
 
 contract TotemNFT is 
     Initializable, 
@@ -101,6 +102,7 @@ contract TotemNFT is
     uint256 public prestigeXpThresholdLevels;
     // Mapping to control which colors are valid for each rarity
     mapping(Rarity => mapping(Color => bool)) public validColorForRarity;
+    address public trustedForwarder;
 
     // Mapping for complete IPFS hashes: species => color => stage => hash
     mapping(Species => mapping(Color => mapping(uint256 => string))) private _metadataURIs;
@@ -127,13 +129,16 @@ contract TotemNFT is
     event TotemUnstaked(uint256 indexed tokenId);
     event MetadataURISet(Species species, Color color, uint256 stage, string uri);
     event PrestigeLevelReached(uint256 indexed tokenId, uint256 prestigeLevel);
+    event TrustedForwarderUpdated(address newForwarder);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    function initialize(
+        address _trustedForwarder
+    ) public initializer {
         __ERC721_init("Totem", "TOTEM");
         __ERC721Enumerable_init();
         __Ownable_init(msg.sender);
@@ -143,6 +148,9 @@ contract TotemNFT is
         stageThresholds =  [500, 1500, 3500, 7500];
         prestigeXpThreshold = 7500;
         prestigeXpThresholdLevels = 2500;
+        // Set trusted forwarder
+        if (_trustedForwarder == address(0)) revert InvalidForwarderAddress();
+        trustedForwarder = _trustedForwarder;
     }
 
     function mint(
@@ -304,7 +312,7 @@ contract TotemNFT is
     }
 
     function evolve(uint256 tokenId) external {
-        address user = msg.sender;
+        address user = _msgSender();
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
 
         // Allow token owner or approved addresses
@@ -348,6 +356,7 @@ contract TotemNFT is
     }
 
     function burn(uint256 tokenId) external {
+        address user = _msgSender();
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         address tokenOwner = _ownerOf(tokenId);
         
@@ -355,11 +364,11 @@ contract TotemNFT is
         // 1. The contract owner (TotemGame)
         // 2. The token owner
         // 3. An approved operator
-        if (msg.sender != owner()) {
+        if (user != owner()) {
             if (
-                tokenOwner != msg.sender && 
-                !isApprovedForAll(tokenOwner, msg.sender) && 
-                getApproved(tokenId) != msg.sender
+                tokenOwner != user && 
+                !isApprovedForAll(tokenOwner, user) && 
+                getApproved(tokenId) != user
             ) revert NotAuthorizedForToken();
         }
 
@@ -421,6 +430,12 @@ contract TotemNFT is
             attributes[tokenId].happiness,
             attributes[tokenId].experience
         );
+    }
+
+    function updateTrustedForwarder(address _newForwarder) external onlyOwner {
+        if (_newForwarder == address(0)) revert InvalidForwarderAddress();
+        trustedForwarder = _newForwarder;
+        emit TrustedForwarderUpdated(_newForwarder);
     }
 
     // Set the IPFS hash for a specific species-color-stage combination
@@ -489,9 +504,14 @@ contract TotemNFT is
         prestigeXpThresholdLevels = newXpThresholdLevels;
     }
 
+    function gameTransferFrom(address from, address to, uint256 tokenId) external onlyOwner {
+        _transfer(from, to, tokenId);
+    }
+
     function setDisplayName(uint256 tokenId, string memory newName) external {
+        address user = _msgSender();
         if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
-        if (_ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (_ownerOf(tokenId) != user) revert NotTokenOwner();
         if (!_validateDisplayName(newName)) revert InvalidNameFormat();
         
         attributes[tokenId].displayName = newName;
@@ -595,7 +615,7 @@ contract TotemNFT is
             return (5 + bonus, 11 + bonus, 8 + bonus);  // Agility primary
         }
         else if (species == Species.Otter) {
-            return (9 + bonus, 10 + bonus, 5 + bonus);  // Agility primary
+            return (8 + bonus, 10 + bonus, 6 + bonus);  // Agility primary
         }
         else if (species == Species.Woodpecker) {
             return (7 + bonus, 11 + bonus, 6 + bonus);  // Agility primary
@@ -628,6 +648,31 @@ contract TotemNFT is
     }
 
     // Helper functions
+    function _msgSender() internal view override returns (address sender) {
+        if (msg.sender == trustedForwarder) {
+            // Extract the original sender from the end of the calldata
+            // solhint-disable-next-line
+            assembly {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+       }
+       else {
+            // Directly return msg.sender for non-forwarder calls
+            sender = msg.sender;
+        }
+        return sender;
+    }
+
+    function _msgData() internal view override returns (bytes calldata) {
+        if (msg.sender == trustedForwarder) {
+            // Remove the last 20 bytes (address) from the calldata
+            return msg.data[:msg.data.length - 20];
+        }
+        else {
+            return msg.data;
+        }
+    }
+
     function _getLimitedVariantHash(
         Species species,
         Color color,
