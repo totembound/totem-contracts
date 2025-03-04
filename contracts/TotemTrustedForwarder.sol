@@ -10,7 +10,7 @@ contract TotemTrustedForwarder is Ownable {
 
     struct ForwardRequest {
         address from;
-        address to;
+        address to; // Specific contract to call
         uint256 value;
         uint256 gas;
         uint256 nonce;
@@ -26,8 +26,7 @@ contract TotemTrustedForwarder is Ownable {
     
     mapping(address => uint256) private _nonces;
     uint256 public maxGasPrice;
-    uint256 public minPOLBalance;  // Minimum POL balance to maintain
-    address public targetContract; // The address of the target contract
+    mapping(address => bool) public allowedContracts; // The allowed target contracts
 
     event MetaTransactionExecuted(
         address indexed from, 
@@ -37,10 +36,27 @@ contract TotemTrustedForwarder is Ownable {
         uint256 gasPrice,
         uint256 polSpent
     );
+    event ContractWhitelisted(address indexed contractAddress, bool status);
+    event GasFundingFailed(address indexed from, address indexed to, uint256 gasCost);
+    event RelayExecutionFailed(
+        address indexed from, 
+        address indexed to, 
+        string reason
+    );
+
+    // Custom errors
+    error UnauthorizedContract();
+    error InvalidSignature();
+    error InvalidContractAddress();
+    error MismatchedArrayLengths();
+    error InvalidFromAddress();
+    error InvalidToAddress();
+    error ContractNotWhitelisted();
+    error InvalidNonce();
+    error TransactionFailed(string reason);
 
     constructor(uint256 _maxGasPrice) Ownable(msg.sender) {
         maxGasPrice = _maxGasPrice;
-        minPOLBalance = 0.1 ether;  // 0.1 POL minimum balance
         _DOMAIN_SEPARATOR = _buildDomainSeparator();
     }
     
@@ -50,34 +66,24 @@ contract TotemTrustedForwarder is Ownable {
         external 
         returns (bool, bytes memory) 
     {
-        require(address(this).balance >= minPOLBalance, "Insufficient POL balance");
-        require(tx.gasprice <= maxGasPrice, "Gas price too high");
-        require(verify(req, signature), "Invalid signature");
-        
+        if (!allowedContracts[req.to]) revert UnauthorizedContract();
+        if (!verify(req, signature)) revert InvalidSignature();
+
         uint256 startGas = gasleft();
         _nonces[req.from] = req.nonce + 1;
 
-        // Calculate estimated gas cost
-        uint256 estimatedGasCost = req.gas * tx.gasprice;
-        require(address(this).balance >= estimatedGasCost, "Insufficient POL for gas");
-
         // Execute the transaction from the forwarder contract itself
-        (bool success, bytes memory returndata) = targetContract.call{gas: req.gas, value: 0}(
+        (bool success, bytes memory returndata) = req.to.call{gas: req.gas, value: 0}(
             abi.encodePacked(req.data, req.from)
         );
 
         // Handle return data and potential revert reasons
         if (!success) {
             // If the call failed, revert with the original error message
-            if (returndata.length > 0) {
-                // Bubble up the original revert reason
-                // solhint-disable-next-line
-                assembly {
-                    revert(add(32, returndata), mload(returndata))
-                }
-            } else {
-                revert("Transaction failed without a reason");
-            }
+            string memory revertReason = _getRevertMsg(returndata);
+            emit RelayExecutionFailed(req.from, req.to, revertReason);
+            // Re-throw with the actual error
+            revert TransactionFailed(revertReason);
         }
 
         // Calculate actual gas used
@@ -96,32 +102,35 @@ contract TotemTrustedForwarder is Ownable {
         return (success, returndata);
     }
 
+    // Update to whitelist/delist contracts
+    function setContractStatus(address _contract, bool _status) external onlyOwner {
+        if (_contract == address(0)) revert InvalidContractAddress();
+
+        allowedContracts[_contract] = _status;
+        emit ContractWhitelisted(_contract, _status);
+    }
+
+    // Batch whitelist contracts
+    function batchSetContractStatus(address[] calldata _contracts, bool[] calldata _statuses) external onlyOwner {
+        if (_contracts.length != _statuses.length) revert MismatchedArrayLengths();
+        
+        for (uint256 i = 0; i < _contracts.length; i++) {
+            if (_contracts[i] == address(0)) revert InvalidContractAddress();
+
+            allowedContracts[_contracts[i]] = _statuses[i];
+            emit ContractWhitelisted(_contracts[i], _statuses[i]);
+        }
+    }
+
     function setMaxGasPrice(uint256 _maxGasPrice) external onlyOwner {
         maxGasPrice = _maxGasPrice;
     }
 
-    function setMinPOLBalance(uint256 _minPOLBalance) external onlyOwner {
-        minPOLBalance = _minPOLBalance;
-    }
-
-    function setTargetContract(address _targetContract) external {
-        require(_targetContract != address(0), "Invalid target contract address");
-        targetContract = _targetContract;
-    }
-
-    function withdrawPOL() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No POL to withdraw");
-        
-        (bool success, ) = payable(owner()).call{value: balance}("");
-        require(success, "POL transfer failed");
-    }
-
     function verify(ForwardRequest calldata req, bytes calldata signature) public view returns (bool) {
         // Validate request parameters
-        require(req.from != address(0), "Invalid from address");
-        require(req.to != address(0), "Invalid to address");
-        require(req.to == targetContract, "Invalid target contract");
+        if (req.from == address(0)) revert InvalidFromAddress();
+        if (req.to == address(0)) revert InvalidToAddress();
+        if (!allowedContracts[req.to]) revert ContractNotWhitelisted();
 
         // Normalize addresses for comparison
         address normalizedFrom = address(uint160(uint256(uint160(req.from))));
@@ -131,7 +140,8 @@ contract TotemTrustedForwarder is Ownable {
         bool isValidSigner = normalizedRecovered == normalizedFrom;
         bool isNonZeroSigner = normalizedRecovered != address(0);
 
-        require(_nonces[normalizedFrom] == req.nonce, "Invalid nonce");
+        if (_nonces[normalizedFrom] != req.nonce) revert InvalidNonce();
+
         return isValidSigner && isNonZeroSigner;
     }
 
@@ -160,6 +170,18 @@ contract TotemTrustedForwarder is Ownable {
 
         // Recover the signer
         return ECDSA.recover(digest, signature);
+    }
+
+    function _getRevertMsg(bytes memory returnData) internal pure returns (string memory) {
+        // If the returnData length is less than 68, then the transaction reverted silently (without a reason string)
+        if (returnData.length < 68) return "Transaction reverted silently";
+        // solhint-disable-next-line
+        assembly {
+            // Slice the sighash.
+            returnData := add(returnData, 0x04)
+        }
+        
+        return abi.decode(returnData, (string));
     }
 
     function _buildDomainSeparator() private view returns (bytes32) {
