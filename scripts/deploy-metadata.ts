@@ -69,6 +69,22 @@ async function main() {
     // Species: "11" represents the Owl
     const species: number[] = [
         1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
@@ -85,6 +101,13 @@ async function main() {
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
         11, 11, 11, 11, 11,
+        11, 11, 11, 11, 11,
+        2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2,
         2, 2, 2, 2, 2,
         2, 2, 2, 2, 2,
         2, 2, 2, 2, 2,
@@ -99,6 +122,22 @@ async function main() {
     ];
     // Color: Brown, Gray, White, Tawny
     const colors:  number[] = [
+        0, 0, 0, 0, 0,
+        1, 1, 1, 1, 1,
+        2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3,
+        4, 4, 4, 4, 4,
+        5, 5, 5, 5, 5,
+        6, 6, 6, 6, 6,
+        7, 7, 7, 7, 7,
+        8, 8, 8, 8, 8,
+        9, 9, 9, 9, 9,
+        10, 10, 10, 10, 10,
+        11, 11, 11, 11, 11,
+        12, 12, 12, 12, 12,
+        13, 13, 13, 13, 13,
+        14, 14, 14, 14, 14,
+        15, 15, 15, 15, 15,
         17, 17, 17, 17, 17,
         0, 0, 0, 0, 0,
         1, 1, 1, 1, 1,
@@ -116,6 +155,7 @@ async function main() {
         13, 13, 13, 13, 13,
         14, 14, 14, 14, 14,
         15, 15, 15, 15, 15,
+        27, 27, 27, 27, 27,
         0, 0, 0, 0, 0,
         1, 1, 1, 1, 1,
         2, 2, 2, 2, 2,
@@ -127,6 +167,12 @@ async function main() {
         8, 8, 8, 8, 8,
         9, 9, 9, 9, 9,
         10, 10, 10, 10, 10,
+        11, 11, 11, 11, 11,
+        12, 12, 12, 12, 12,
+        13, 13, 13, 13, 13,
+        14, 14, 14, 14, 14,
+        15, 15, 15, 15, 15,
+        18, 18, 18, 18, 18,
     ];
     // Stages 0 to 4
     const stages:  number[] = [
@@ -158,15 +204,139 @@ async function main() {
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
         0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
+        0, 1, 2, 3, 4,
     ];
     const ipfsHashes: string[] = [
+        // Common
+        // Otter  Brown
+        "bafkreicpcfkpo24jbnfu3xbgidznyjd4pcx32ao4cboyyxi2azwkg64qwa",
+        "bafkreib6kbiqkhzcurdu3hiznmpxhcfmkzxoymbyvqk7zteqql5uqi7qbi",
+        "bafkreibbl6lkaxehshn7tx4pu3z7mqtkn4mh3szj53g36e5herxko7cylu",
+        "bafkreignefaro7ohnxdqq7hafuopras2akca4guwozzbuofo7v2ibaf4wu",
+        "bafkreigrjm2qpwkhhmy32d2c23zwh3w57ve7yidewsd63jxoajmgkaheoi",
+        // Otter - Gray
+        "bafkreicwfbyufn2fxxtoub44nb4vnlx6idgz7m4tr6i4sqiaolcprpzowi",
+        "bafkreigjxigu3mmzfoeyas3o2lx23ncamivfdfeu7xiuff3bdfsrqptez4",
+        "bafkreifvrkxn5luuge64kvfq4he7psjrhgguvb2mm3vzeshqvd4sgnlwmi",
+        "bafkreia2ezz74xulsj5n6nwxm3noc3piv7bbhfixmp43uj7ypwipyzfbly",
+        "bafkreiagewynrsqpeqrknhfuqcny4tspvxqlimjjst6zydwf54iewkzmmm",
+        // Otter - White
+        "bafkreigphpsewy5yonzqhrakeu43knggiwe6n2ptrx5fuyjwtpwul3tdcu",
+        "bafkreihz7tbi4ap5bfxrdfqisnzzjn7a5bkvoq5vviuy664qus32i47dsy",
+        "bafkreigvm5s3ks426oich4bsp7ss74rw7p4jymrn5wix37ijjufv2pckzu",
+        "bafkreialig6vx6xcvhry5gsjpf7n6niyihnhjuryz5fijbafornpdcwmuu",
+        "bafkreigqiysrgvoibvwjt3kguhcawelkkbsmxlopg2hm72ghxlhm7m6bru",
+        // Otter - Tawny
+        "bafkreifb3z6xvdowfxf4kby47pa5vpfzs75skjex2nnvnbsosx54jbv5k4",
+        "bafkreihswslg3ubxxgvgej7v5cumctieaeu3tgzttnrwvigzs6yv4up4ym",
+        "bafkreieomrtvqe5aby5sn3btyxdyiz7lqp6clydtf5mlgsctkmiigifaxa",
+        "bafkreiezgmyk6wqdbnbeiouo3fzzpjbk52yzhmnfva3ovmaedxdrg226pq",
+        "bafkreidfr5xydzk45x3do7jtv5sgscfvme7zsdbmqhjzlzu4c7ywisz6cu",
+        // Uncommon
+        // Otter - Slate
+        "bafkreicco5gm7opteku2eepcck5awq37okvosi2fsfmch6aagxgi534f74",
+        "bafkreiasohtlxivqutny7sfrj5lm2nh4mmgqh47dlrkb2rmjxmtzqnvd24",
+        "bafkreice7gfeqgnqol6alw23jlh555w3l357d4demxfpxi6b3khofgxc24",
+        "bafkreiewgmubmlbvmnzyruoowrahnm7k2vkawszcxjgp3fwzk27cmhyvkm",
+        "bafkreiezxuk7ldrwovnw2jwyoquqdqwgzhmxbaetmqxvltexdyro7h6amy",
+        // Otter - Copper
+        "bafkreickdxaulzgvoemzjd2ylhbuznor5nudeijyagahkcu2sfqvc4xp2a",
+        "bafkreifpmvu2oiq7pkyjbux5fm7iffeidphjlkgaiiwhgzl7ei7gobr4cq",
+        "bafkreie7u7lmvqfzu2z4ho2lvbb57sy5daikermjhxz3ngb5cjc5d5ghsa",
+        "bafkreiay7ykh36jf2z3saebiftxo6v4osuxpfasrqfsfffupdxixnursna",
+        "bafkreihg4w7q3tbhvesexmjk4cmzuh2navkc35db5ubs3dzzhafyykbkyq",
+        // Otter - Cream
+        "bafkreidzxgnds5veaq2o3pwr5aeu3lm3f4v2e4o76rxv37d5wncfeps7qi",
+        "bafkreihmx3qvnystgum7tz7ztlynf6n3kshmgkcvsvugdq7aed7yq4caiq",
+        "bafkreiavqo6cwcedntp3psymn3x55czvbqo2da4usbrhqak3qrnyfe7ceq",
+        "bafkreifddtbl5nqqrknymppgvmg7xmozv2kdpfrhwuwsvmrzcrrlsaajta",
+        "bafkreicrabcbiet3xajiyfaif5gr62yoiya2kuixd2a772rgelpzaku6rm",
+        // Otter - Dappled
+        "bafkreidlknfaapa6lu4k4cof37ysc7r7ljixrv2ewo7u3xlgzuniob6naa",
+        "bafkreicoo7muzwnlh2jo6l7e3war5vo764oqjrses7j4lukonsrcibit3a",
+        "bafkreid3vdrmxrwuzmyq3uq7apdqt66owkmc7t34d2apu2r3zmpstrksmq",
+        "bafkreiawpra7a7hdydx2xu6bxflbb7j67dgqfc3cr2s4twxtlwzonzmrmy",
+        "bafkreieoyzh22cmbqqi74345ahmzdaqpgwjy76xcuxhdpiyl3zocqrgupi",
+        // Rare
+        // Otter - Golden
+        "bafkreihd4djeumjvhpplamghrlrjg6op74aycswlwgblxkumbuu62vxt7u",
+        "bafkreicsmc7wcgkqj2fekqp7jdju6iqmxjnqgkhaao7nfgerkwike5rpq4",
+        "bafkreidesw3ki4etrrvomhiknghyyr5fgzfzaqz5eirk2v2albu4tkgjoq",
+        "bafkreicdkmutcv5kfi5nxjzvfqh4ox5wsqiz7lfkjazrzq5jvh3plnnteq",
+        "bafkreiefo6a6423eijlmrtvjitijxtmkc3jgusn2qxp4tfwhsboij24upi",
+        // Otter - Dark Purple
+        "bafkreiaukuhgwl35houstj3abfv3xfmxpp3atkwufmf5rgkfr4utwnq3l4",
+        "bafkreif56v76p6sexie5jhpls2w4onwuroub3ouoxqw7wklqdxafzklaiy",
+        "bafkreidwllsehywc6erv6lsi6lz5w6hiblwpc3brbui2alg7gnrzzttpbi",
+        "bafkreibkvqrodlj7vuhu4fplrhluifd7ijnla3x2c24qdfjraytg76cj3e",
+        "bafkreihar3dwu2uhninvcdeuiowhtdxbhlajq2kuptr32vo3rqw4xc7ryi",
+        // Otter - Charcoal
+        "bafkreigwgztzbhyfbmdgaxaxmfyvtwjeth3gvhunolr5ah4hmdi62su5na",
+        "bafkreieqxx54vav3ljblrmap3dg5a2a6avv2ryzscqohy7d6g5b3low4dm",
+        "bafkreiezwyn3xjx34nuqzqpilr2ukfifqqm7rc5ahndbjig6tyn3iorame",
+        "bafkreifmanvx5ybf5f3iwxizfhc3xtd5h7tiosktjdfdazf4s3oy2lbyma",
+        "bafkreighei7fayfgs42gpi57k7y52tzxpe6mu2wt7ddyo2r7q5q7h4du6m",
+        // Epic
+        // Otter - EmeraldGreen
+        "bafkreickj2rjx3yz5nadb6vhprup5exnfbukr2krdmqvb54xdefwxsj2f4",
+        "bafkreidg4qwlhij52o6vuxquu27atr4ejy7q2gy2e6amhpnh3pmtzt3arm",
+        "bafkreia36wm3q5vs6ec3xibrgrtivwwbbr5xnjviv63t3wtnul6picagiy",
+        "bafkreih7o2mzhfv4zkvatb76qyb5wjs25zn4lzx4dvggepvmwzwzgusdmu",
+        "bafkreiarrhbvp46jjqubyn7pgvkpjdhqv7jylloju6tlr76r7whhi7npgq",
+        // Otter - CrimsonRed
+        "bafkreidqanvlpx37wp3xey3dctggz6rtbhbqs7xtwwtxujmucw6m2azd2m",
+        "bafkreigklmvbfdngvt5n7f5q6oxhgwzjnrp26im5va72gcbk4lypup3fzq",
+        "bafkreie33342alf37tg6shjyfphqmdp3456p6ga5x34x7oyyjkn5p7jklu",
+        "bafkreicbdfqwzveurfiwdu7ht3xcxi7lk5txqk5kvpxgwhn3hxzixagsmi",
+        "bafkreih4frw2rv4j4ml4ydirqr7arok2wk2agu2kdjdm77zxsjts6dnkye",
+        // Otter - DeepSapphire
+        "bafkreico73ofx4rc2iet6p6x7blf2d6qzlmij7dkxhqzjk7gavhdzfgw2y",
+        "bafkreifcyfo27jyf6c74dlvgynuifdboacpotacjy2b6rarmamrua4vnvy",
+        "bafkreieq7xorbjlielz5ciyjgyws55ynezuauh42bwelolg4fdtlnsugkm",
+        "bafkreigkdqi2us5mzhwhxk5ryxdx4kqj277vxll7v5vzv2lj6dbi4vibze",
+        "bafkreicmnsulxet5ag5jq2yif7l3yvk7vhvibg3ab323ylieljsersxn44",
+        // Legendary
+        // Otter - EtherealSilver
+        "bafkreibagkwps2ogbntyssbsfrq5zl335sascnsyivmqzxbabjlg2vmmky",
+        "bafkreiat4j7rp2emwfhmg22x35oyavx7l3a4pxfaibodcnrdvp3mce2lri",
+        "bafkreigpxtq6fw7syoij6vf3rzpytxaypgcpne3wg5fl2noedr5jajuxa4",
+        "bafkreieasyiy7ucpi4qid6hqc3r7gferf24kllfyvhbb63nvmbtjwa5xh4",
+        "bafkreibbiffudwuwlcuvr4liojjezrttxxaupxixoa2wwt6higxd5svde4",
+        // Otter - RadiantGold
+        "bafkreifbsbesplm2rrxboc6q3oi54bvu5tyi5iowmqymuikpu5uaviwosy",
+        "bafkreigfkkmp2zeozhlh434pzosuxttb6ha4zfhr5xupxqbbj2mdnrctvm",
+        "bafkreidpnprxjqhvfv4ub4mvce4b56fu5v65gaurus4y6blwf7lptjwpm4",
+        "bafkreiauu5ufdsx4rgmd27i4ylbiuhm5pqhas3yw67zwsu3ll6tw4gqiz4",
+        "bafkreibmtm2cdjav326ef7wjbslwv5ntg4elubqieqtv6upcigu6ipqj3u",
         // Limited
         // Otter - Rosy Pink
-        "bafkreighval4flz7kk5xm33lfu66eyuptbewpfehb37fp5i3nhm5kmdwwu",
-        "bafkreie5bfsnm7mshrmzejnoaevwz7yaeyffph7zmpuyqytb2g74wqiueu",
-        "bafkreic2j2sjp5kzmgubx5x3y5k34lk7nrsjkj52vv5b42ppi4h5i7v5x4",
-        "bafkreiawd2ic76wgw43aoer2rnkzswacpnmkbnlolo7d7e2fd4sqilcrle",
-        "bafkreig6rpjmbrsa443jlsx7ogxih74h4ctnymt5zkrwjjoueijiydxwke",
+        "bafkreihjvwlq5wxgheyfphnuzememcxyzljz6ri6p5g64q5vz2j7u7c2ii",
+        "bafkreiagk6mvythvm4csybxedczzg2tduhawqb3yhtjgx6jrxittheyfs4",
+        "bafkreidif2iydlyhddr63cbackgnl23wyuzxuyp5xc73xd5g3ru2e4i5pm",
+        "bafkreidyscumoptytbcab6ujqfbklfnwwxzj6kskyrmaacv2iukzhq6tuu",
+        "bafkreidb2rzxvdaggcbpdqqogu5h5etfri7nn5xoydnk4xfgnhr3z62dhu",
         // Common
         // Owl - Brown
         "bafkreigpmhef7yjgtdtferp6lo53yihkqeg5bn5bpmf5tst5dkngxvysda",
@@ -268,6 +438,13 @@ async function main() {
         "bafkreida3sea3n3kbthngns5kqsrohkb47oip5qe4kiian7g2qwnobap7e",
         "bafkreih5sadipld2dbnjg7xyshrxos3ngplixn4mpa43pcttrdzfd5xhlq",
         "bafkreia5cxhlwdc4pu6lhsduy7hw7xyo5zaqebucpkngnkafmh6nxaed2m",
+        // Limited
+        // Owl - StarlitSilver
+        "bafkreiew4cq4mkfp2qw5pi4bm6wzvyccr7qhedbocfmcxtbmhkb2ujfegq",
+        "bafkreifjfql6sbymihrlhi3lhow5x56jdidnc7sa3lj4rql7zclxfwxfdm",
+        "bafkreigaddtfu2axgiu4yy4tmovzpivkjvh5k3mvsw6d2r6y2tqigifewy",
+        "bafkreien4krsxeeykmqirsojy2cdiskqjr74af3x6m4svtygos75zwot6a",
+        "bafkreibmqmiykthnrfbzpwui3l5obdr6ozuzoqocutao2k7o7o52iymoey",
         // Common
         // Wolf - Brown
         "bafkreifxb67n72jum6ovkpuggjsrfe42iit3r3rjrnhywqw4shjokgkkb4",
@@ -337,6 +514,45 @@ async function main() {
         "bafkreig2hujbvbd2je7hfvbn3mofk4cqsgtazakqza7jksi4qqthsqdozm",
         "bafkreig7bq7n7nanedtrl5jj2etiiuhovt7k4bpbtunt2mao7tvx56j25i",
         "bafkreieb6rft73ib5nrqgppxawscjptmtuuvp4efbpnrwsgrxugihb5ndq",
+        // Epic
+        // Wolf - EmeraldGreen
+        "bafkreidz4ffadftyeq64vbsnl4u2wd6fz4rdni3sjyvahisyrginwwvc4a",
+        "bafkreifpnwnbnnznuqmd5pmg3yv7g2n6litxxudzscnrpbp7dn3wvoqvvm",
+        "bafkreiek44p6zr34bitpkk7jkqovhiallb6qgheokn7gkgtki3ye6lzyg4",
+        "bafkreidobvsnn3ysr7axk36mupsnlllctpndclltkegem56jajnxcnyczy",
+        "bafkreie5mpmhwpgtlwldu6q5a2cwts7jmi3qspbhxqjqewsblkrtrqnhai",
+        // Wolf - CrimsonRed
+        "bafkreiebyy6mppgg2bwkl3fvisfhetszd2r2bnl5coecz2vn3kbtuadtzy",
+        "bafkreibusbnl4jagfapcik65ucwvskd2o6zscyvair7cglrfqsu5mzstza",
+        "bafkreiffbgdhy7fy6tufgam4uzos2x6vx47k7iheuftbxi7lto3cuzkzxi",
+        "bafkreiaco6qpmkconagveiphqslrlbxz4jehvh4rdszezdidgwvm7gknva",
+        "bafkreiaxmcsr33ak7qcdy5mr3c5cuesbkrx4cydsnrcd2geolrv7hye3ia",
+        // Wolf - DeepSapphire
+        "bafkreiavrulu2s43xxx44ffbvrehjdhhsuhpa725q5ecjraqdig7rtbx2i",
+        "bafkreibaygr7p5otiykd7vcmx2wqfmg4fd2ypt3gkpmzd6rgcelj4doxwu",
+        "bafkreiccwydeqotz7gdauyrrmm54z37rvelwpcmvptwwt36tgsdqsj7jsy",
+        "bafkreihyce4ticg7dpdpfj4xeucfflskg4s65vpnjd3y42jyf7jqpqkxb4",
+        "bafkreigdwim7dz2cjvhvsgtr2ouy76puw5zlvcnchg2o7py4ma4uhmjqla",
+        // Legendary
+        // Wolf - EtherealSilver
+        "bafkreifozsgmp73fb3pvxcuygiqio57n2agk77q7mo4jhlizcofn6t2r4q",
+        "bafkreidwrog2qrtjkpvhcizqalbdeiya5w74wju4etyx3jztpayb64k7qi",
+        "bafkreico5wn2ctirv63th45tpjo62bjhye4sx7w2capngytmdq4jhxx6ui",
+        "bafkreic5cgj6u76fcfyf5vniyxckvjmguwqlww4g2pmyio26m53pxub43a",
+        "bafkreibpqiet4p6cry4jcpj5moanwkxqbghtjq4cil3rxgafww764ifluq",
+        // Wolf - RadiantGold
+        "bafkreihuob35zuqwdoabwjardeorsypev7wcigeilkuqstqqrk6swd3itm",
+        "bafkreicqwxwm5r3z246xvtyy4y7f5kugf7abf6tmmvcjpiwuorispcewny",
+        "bafkreidszyhuvhfk57x6rlotww3c5gbe3novlyvgqqlwiqzlt3qf2uxwzq",
+        "bafkreifrakr7herihht5umhjhdy5tjlupkd5p57erkfgb3nofmn6pa3age",
+        "bafkreigz2g5ygprr374njzkhgjfu7okaczukr5jcgn265h5jihxbby2kuu",
+        // Limited
+        // Wolf - Verdant Gold
+        "bafkreihj65vqj5aohymqtgsstbrcmvj2euf77da7sgssdyxxx7kqglczxm",
+        "bafkreianm4tiqwfh6skvlupwgmvqmokj46enpr6t6iphdwnfqugpzcds54",
+        "bafkreic46ha6ce3nnmy5nh3bam7kesdb6365z2baohpxcv7jchct4yze24",
+        "bafkreiaweccezezr24kuadilwdkzb3zbwgctudovyhjsjnhz6kozjd2ymm",
+        "bafkreibmsswrohstvyioo7oqps7jdusd44xc3lwh6f6cznxoldhgw3rxna",
     ];
 
     // Ensure array lengths match
@@ -467,7 +683,7 @@ async function main() {
 
     // Monthly Special Bundle (250 POL)
     console.log("Creating Monthly Special Bundle...");
-    await game.createBundle(
+    /* await game.createBundle(
         ethers.parseEther("250"),         // 250 POL
         ethers.parseUnits("10000", 18),   // 10000 TOTEM
         1,                                // Species.Otter
@@ -476,8 +692,18 @@ async function main() {
         5,                                // Rarity.Limited
         true,                             // Is limited rarity
         monthEnd                          // Expires end of month
+    ); */
+    await game.createBundle(
+        ethers.parseEther("250"),         // 250 POL
+        ethers.parseUnits("10000", 18),   // 10000 TOTEM
+        2,                                // Species.Wolf
+        18,                               // Color.VerdantGold
+        5,                                // Rarity.Limited
+        5,                                // Rarity.Limited
+        true,                             // Is limited rarity
+        monthEnd                          // Expires end of month
     );
-
+    
     // Verify bundles were created
     console.log("\nVerifying bundles...");
     for(let i = 0; i < 4; i++) {
