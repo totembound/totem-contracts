@@ -73,6 +73,7 @@ async function main() {
     console.log("Token Proxy deployed to:", tokenProxyAddress);
 
     const initNFTData = TotemNFT.interface.encodeFunctionData("initialize", [
+        forwarderAddress
     ]);
 
     // Deploy Proxy for TotemNFT
@@ -282,16 +283,15 @@ async function main() {
     console.log("Challenges contract set in game");
         
     // Set up Forwarder, transfer POL
-    console.log("\nSetting proxy address in forwarder...");
-    const setForwarderTx = await forwarder.setTargetContract(gameProxyAddress);
+    console.log("\nSetting proxy addresses in forwarder...");
+    const setForwarderTx = await forwarder.batchSetContractStatus([
+        gameProxyAddress, 
+        nftProxyAddress, 
+        tokenProxyAddress, 
+        rewardsProxyAddress
+    ], [true, true, true, true]);
     await setForwarderTx.wait();
-    console.log("\nFunding Forwarder with POL...");
-    const fundForwarderTx = await deployer.sendTransaction({
-        to: forwarderAddress,
-        value: ethers.parseEther("1")
-    });
-    await fundForwarderTx.wait();
-    console.log("Forwarder funded with 1 POL");
+    console.log("\nForwarder proxy addresses configured");
 
     // Save deployment info
     console.log("\nSaving deployment info...");

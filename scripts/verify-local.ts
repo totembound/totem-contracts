@@ -13,16 +13,24 @@ async function main() {
 
     console.log("\nVerifying contract setup...");
     
-    // 1. Check forwarder target
-    const target = await forwarder.targetContract();
-    console.log("Forwarder target contract:", target);
-    console.log("Expected target (game proxy):", deployment.gameProxy);
-    
-    if (target.toLowerCase() !== deployment.gameProxy.toLowerCase()) {
-        console.log("Setting correct target contract...");
-        const tx = await forwarder.setTargetContract(deployment.gameProxy);
-        await tx.wait();
-        console.log("Target contract updated");
+    // 1. Check forwarder whitelisted contracts
+    const whitelistedContracts = [
+        deployment.gameProxy,
+        deployment.totemNFTProxy,
+        deployment.tokenProxy,
+        deployment.rewardsProxy
+    ];
+
+    for (const contractAddress of whitelistedContracts) {
+        const isWhitelisted = await forwarder.allowedContracts(contractAddress);
+        console.log(`Contract ${contractAddress} whitelisted:`, isWhitelisted);
+        
+        if (!isWhitelisted) {
+            console.log(`Whitelisting ${contractAddress}...`);
+            const tx = await forwarder.setContractStatus(contractAddress, true);
+            await tx.wait();
+            console.log(`${contractAddress} whitelisted`);
+        }
     }
     
     // 2. Verify game contract's trusted forwarder

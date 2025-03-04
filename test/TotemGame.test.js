@@ -59,7 +59,9 @@ describe("TotemGame", function () {
         // Deploy TotemNFT
         TotemNFT = await ethers.getContractFactory("TotemNFT");
         const nftImplementation = await TotemNFT.deploy();;
-        const initNFTData = TotemNFT.interface.encodeFunctionData("initialize");
+        const initNFTData = TotemNFT.interface.encodeFunctionData("initialize", [
+            trustedForwarder.address
+        ]);
         const nftProxy = await TotemProxy.deploy(
             await nftImplementation.getAddress(),
             await proxyAdmin.getAddress(),
