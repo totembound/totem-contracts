@@ -1,11 +1,12 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { saveDeployment } from "./helpers";
 
 async function main() {
     const [deployer] = await ethers.getSigners();
+    const networkName = network.name;
     console.log("Deploying contracts with:", deployer.address);
     console.log("Account balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)));
-
+    
     // Deploy TotemAdminPriceOracle
     console.log("\nDeploying TotemAdminPriceOracle...");
     const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
@@ -296,7 +297,7 @@ async function main() {
     // Save deployment info
     console.log("\nSaving deployment info...");
     const deploymentInfo = {
-        network: "localhost",
+        network: networkName,
         priceOracle: oracleAddress,
         tokenImplementation: tokenImplementationAddress,
         tokenProxy: tokenProxyAddress,
@@ -314,7 +315,7 @@ async function main() {
         challengesProxy: challengesProxyAddress,
         deployer: deployer.address,
     };
-    saveDeployment("localhost", deploymentInfo);
+    saveDeployment(networkName, deploymentInfo);
 
     // Verify setup
     console.log("\nVerifying setup...");
@@ -331,6 +332,7 @@ async function main() {
     console.log("Rewards Proxy TOTEM Balance:", ethers.formatEther(rewardsTotemBalance));
     console.log("Rewards Proxy POL Balance:", ethers.formatEther(rewardsProxyBalance));
     console.log("Token TOTEM Balance:", ethers.formatEther(tokenTotemBalance));
+    console.log("Account balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)));
 }
 
 main()
