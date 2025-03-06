@@ -51,8 +51,8 @@ export async function mintAndAnalyzeDistribution(
         12: "CrimsonRed",
         13: "DeepSapphire",
         // Legendary Colors (14-15)
-        14: "RadiantGold",
-        15: "EtherealSilver"
+        14: "EtherealSilver",
+        15: "RadiantGold"
     };
 
     // Initialize counters

@@ -1,9 +1,11 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
 import { TotemAchievements } from "../typechain-types";
 
 async function main() {
-    const deployment = loadDeployment("localhost");
+    const networkName = network.name;
+    const deployment = loadDeployment(networkName);
+
     const achievements = await ethers.getContractAt(
         "TotemAchievements",
         deployment.achievementsProxy
