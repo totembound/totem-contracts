@@ -1,8 +1,9 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
 
 async function main() {
-    const deployment = loadDeployment("localhost");
+    const networkName = network.name;
+    const deployment = loadDeployment(networkName);
     const [deployer] = await ethers.getSigners();
 
     console.log("Configuring rewards with:", deployer.address);

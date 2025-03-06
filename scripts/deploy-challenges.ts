@@ -1,9 +1,10 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
 import { TotemChallenges, TotemGame } from "../typechain-types";
 
 async function main() {
-    const deployment = loadDeployment("localhost");
+    const networkName = network.name;
+    const deployment = loadDeployment(networkName);
     const [deployer] = await ethers.getSigners();
 
     console.log("Configuring challenges with:", deployer.address);
@@ -232,7 +233,7 @@ async function main() {
         );
         const receipt = await tx.wait();
         console.log("Transaction status:", receipt?.status);
-        console.log("Transaction logs:", receipt?.logs);
+        //console.log("Transaction logs:", receipt?.logs);
 
         // Add metadata for UI
         await (await game.setChallengeMetadata(
@@ -249,33 +250,6 @@ async function main() {
         )).wait();
 
         console.log(`${trial.name} configured with ID: ${trial.id}`);
-    }
-
-    // Verify configuration
-    console.log("\nVerifying challenge configuration...");
-    const challengeIds = await challenges.getChallengeIds();
-    console.log(`Found ${challengeIds.length} configured challenges:`);
-
-    for (const id of challengeIds) {
-        const info = await challenges.getChallengeInfo(id);
-        console.log(`\nChallenge: ${info.name}`);
-        console.log(`Description: ${info.description}`);
-        console.log(`Type: ${ChallengeType[Number(info.challengeType)]}`);
-        console.log(`Attribute: ${ChallengeAttribute[Number(info.attribute)]}`);
-        console.log("Requirements:", {
-            stage: info.requirements.stage,
-            strength: info.requirements.strength,
-            agility: info.requirements.agility,
-            wisdom: info.requirements.wisdom
-        });
-        console.log(`Max Daily Attempts: ${info.maxDailyAttempts}`);
-        console.log(`Max Score: ${info.maxScore}`);
-        console.log(`Enabled: ${info.enabled}`);
-
-        // Get metadata
-        const category = await challenges.getChallengeMetadata(id, "category");
-        const difficulty = await challenges.getChallengeMetadata(id, "difficulty");
-        console.log("Metadata:", { category, difficulty });
     }
 
     console.log("\nChallenge system deployment and configuration complete!");

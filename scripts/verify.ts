@@ -3,18 +3,16 @@ import { execSync } from 'child_process';
 // Get arguments
 const network = process.env.NETWORK || 'localhost';
 const startStep = parseInt(process.env.START_STEP || '1');
-const endStep = parseInt(process.env.END_STEP || '5');
+const endStep = parseInt(process.env.END_STEP || '3');
 
-console.log(`Deploying to network: ${network}`);
+console.log(`Verifying network: ${network}`);
 console.log(`Steps: ${startStep} to ${endStep}`);
 
-// Define deployment steps
+// Define verify steps
 const steps = [
-    { script: './scripts/deploy-core.ts', name: 'Core Contracts' },
-    { script: './scripts/deploy-achievements.ts', name: 'Achievements' },
-    { script: './scripts/deploy-challenges.ts', name: 'Challenges' },
-    { script: './scripts/deploy-rewards.ts', name: 'Rewards System' },
-    { script: './scripts/deploy-metadata.ts', name: 'Configure Metadata' }
+    { script: './scripts/verify-core.ts', name: 'Core Contracts' },
+    { script: './scripts/verify-challenges.ts', name: 'Challenges' },
+    { script: './scripts/verify-metadata.ts', name: 'Configure Metadata' }
 ];
 
 // Execute deployment steps
@@ -31,4 +29,4 @@ for (let i = startStep - 1; i < Math.min(endStep, steps.length); i++) {
     }
 }
 
-console.log('\nDeployment completed successfully!');
+console.log('\nVerification completed successfully!');

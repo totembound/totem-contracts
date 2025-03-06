@@ -1,16 +1,17 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
 import { TotemAchievements } from "../typechain-types";
 const ONETIME_REQUIREMENT = ethers.MaxUint256;
 
 async function main() {
-    const deployment = loadDeployment("localhost");
+    const networkName = network.name;
+    const deployment = loadDeployment(networkName);
     const [deployer] = await ethers.getSigners();
 
     // Get TotemAchievements contract instance
     const achievements = await ethers.getContractAt(
         "TotemAchievements",
-        deployment.achievementsProxy  // Assuming this is saved in deployment
+        deployment.achievementsProxy
     ) as TotemAchievements;
 
     console.log("Configuring achievements with:", deployer.address);

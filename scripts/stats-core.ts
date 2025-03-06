@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
 import { TotemGame, TotemNFT, TotemToken } from "../typechain-types";
 
@@ -61,7 +61,8 @@ enum Rarity {
 }
 
 async function main() {
-    const deployment = loadDeployment("localhost");
+    const networkName = network.name;
+    const deployment = loadDeployment(networkName);
     console.log("Loading contracts...\n");
 
     // Get provider
@@ -213,7 +214,33 @@ async function main() {
         console.log(`Stage ${index}: ${count}`);
     });
 
-    // Keep existing token stats and top holders...
+    // Additional token stats
+    console.log("\n=== Token Statistics ===");
+    const totalSupplyTotem = await token.totalSupply();
+    console.log(`Total TOTEM Supply: ${ethers.formatEther(totalSupplyTotem)} TOTEM`);
+    
+    // Top holders (unique addresses)
+    const uniqueAddresses = [...new Set([
+        ...events.map(e => e.args.user),
+        deployment.gameProxy,
+        deployment.totemToken
+    ])];
+    const validAddresses = uniqueAddresses.filter(addr => addr !== undefined && addr !== null);
+
+    console.log("\n=== Top TOTEM Holders ===");
+    const balances = await Promise.all(
+        validAddresses.map(async addr => ({
+            address: addr,
+            balance: await token.balanceOf(addr)
+        }))
+    );
+
+    balances
+        .sort((a, b) => Number(b.balance - a.balance))
+        .slice(0, 10)
+        .forEach(({ address, balance }) => {
+            console.log(`${address}: ${ethers.formatEther(balance)} TOTEM`);
+        });
 }
 
 main()
