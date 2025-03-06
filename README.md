@@ -31,8 +31,8 @@ Solidity smart contracts for the TotemBound NFT game ecosystem on Polygon.
 - ✅ Core contracts
 - ✅ Basic game mechanics
 - ✅ NFT metadata and URI handling
+- ✅ Meta-transaction support
 - 🔲 VRF integration
-- 🔲 Meta-transaction support
 - 🔲 Staking mechanism
 - 🔲 Marketplace for trading
 - 🔲 Governance features
@@ -76,24 +76,19 @@ npx hardhat test
 
 3. Deploy contracts:
 ```bash
-npx hardhat run scripts/deploy-local.ts --network localhost
+npx hardhat run scripts/deploy.ts --network localhost
 ```
 
 ## Contract Verification
 
 ### Verify contracts locally:
 ```bash
-npx hardhat run scripts/verify-local.ts --network localhost
-npx hardhat run scripts/stats.ts --network localhost
+npx hardhat run scripts/verify.ts --network localhost
 ```
+
 ### Verify contracts on PolygonScan:
 ```bash
 npx hardhat verify --network polygon CONTRACT_ADDRESS CONSTRUCTOR_ARGS
-```
-
-## Add MetadataURI for Totems on IPFS:
-```bash
-npx hardhat run scripts/setMetadataURIs.ts --network localhost
 ```
 
 ## Check stats on Users and Totems:
