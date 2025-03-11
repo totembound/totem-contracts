@@ -58,7 +58,8 @@ async function main() {
     console.log("ProxyAdmin deployed to:", proxyAdminAddress);
 
     const initTokenData = TotemToken.interface.encodeFunctionData("initialize", [
-        oracleAddress
+        oracleAddress,
+        forwarderAddress
     ]);
 
     // Deploy Proxy for TotemToken
