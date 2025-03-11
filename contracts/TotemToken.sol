@@ -26,6 +26,7 @@ contract TotemToken is
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 10**18;
 
     // State variables
+    address public trustedForwarder;
     mapping(AllocationCategory => uint256) private _allocations;
     ITotemPriceOracle private _priceOracle;
 
@@ -34,7 +35,7 @@ contract TotemToken is
         _disableInitializers();
     }
 
-    function initialize(address initialOracle) public initializer {
+    function initialize(address initialOracle, address _trustedForwarder) public initializer {
         __ERC20_init("TotemBound Token", "TOTEM");
         __Pausable_init();
         __Ownable_init(msg.sender);
@@ -46,6 +47,7 @@ contract TotemToken is
             revert InvalidOracleImplementation();
 
         _priceOracle = ITotemPriceOracle(initialOracle);
+        trustedForwarder = _trustedForwarder;
 
         // Initialize allocations
         _allocations[AllocationCategory.Game] = 250_000_000 * 10**18;      // 250M 25%
@@ -191,6 +193,31 @@ contract TotemToken is
         returns (bool)
     {
         return super.approve(spender, amount);
+    }
+
+    function _msgSender() internal view override returns (address sender) {
+        if (msg.sender == trustedForwarder) {
+            // Extract the original sender from the end of the calldata
+            // solhint-disable-next-line
+            assembly {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+       }
+       else {
+            // Directly return msg.sender for non-forwarder calls
+            sender = msg.sender;
+        }
+        return sender;
+    }
+
+    function _msgData() internal view override returns (bytes calldata) {
+        if (msg.sender == trustedForwarder) {
+            // Remove the last 20 bytes (address) from the calldata
+            return msg.data[:msg.data.length - 20];
+        }
+        else {
+            return msg.data;
+        }
     }
 
     // Internal functions
