@@ -42,7 +42,8 @@ describe("TotemGame", function () {
 
         // Prepare initialization data
         const initTokenData = TotemToken.interface.encodeFunctionData("initialize", [
-            await oracle.getAddress()
+            await oracle.getAddress(),
+            trustedForwarder.address
         ]);
 
         // Deploy proxy

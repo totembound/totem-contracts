@@ -91,7 +91,7 @@ describe("TotemAchievements", function () {
     ];
 
     beforeEach(async function () {
-        [owner, addr1, addr2, authorizedContract] = await ethers.getSigners();
+        [owner, addr1, addr2, authorizedContract, trustedForwarder] = await ethers.getSigners();
 
         // Deploy mocks and setup contracts similar to deploy-local.ts
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
@@ -111,7 +111,8 @@ describe("TotemAchievements", function () {
 
         // Prepare token initialization
         const initTokenData = TotemToken.interface.encodeFunctionData("initialize", [
-            await oracle.getAddress()
+            await oracle.getAddress(),
+            trustedForwarder.address
         ]);
 
         // Deploy Token Proxy

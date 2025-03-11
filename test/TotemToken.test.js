@@ -30,7 +30,7 @@ describe("TotemToken", function () {
     };
 
     beforeEach(async function () {
-        [owner, addr1, addr2] = await ethers.getSigners();
+        [owner, addr1, addr2, trustedForwarder] = await ethers.getSigners();
         
         // Deploy admin oracle first
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
@@ -46,7 +46,8 @@ describe("TotemToken", function () {
 
         // Prepare initialization data
         const initData = TotemToken.interface.encodeFunctionData("initialize", [
-            await oracle.getAddress()
+            await oracle.getAddress(),
+            trustedForwarder.address
         ]);
 
         // Deploy proxy
@@ -84,7 +85,7 @@ describe("TotemToken", function () {
 
         it("Should not allow reinitialization", async function () {
             await expect(
-                token.initialize(await oracle.getAddress())
+                token.initialize(await oracle.getAddress(), trustedForwarder.address)
             ).to.be.revertedWithCustomError(token, "InvalidInitialization"); // From Initializable
         });
     });
