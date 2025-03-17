@@ -52,18 +52,32 @@ const config: HardhatUserConfig = {
 };
 
 const CONTRACTS = ["TotemGame", "TotemNFT", "TotemRewards", "TotemAchievements", "TotemToken", "TotemChallenges", "TotemTrustedForwarder"];
-const FRONTEND_ABI_PATH = "../totem-app/src/contracts"; // Adjust path as needed
 
-task("export-abi", "Exports contract ABIs to frontend")
-  .setAction(async (_, { artifacts }) => {
-    if (!fs.existsSync(FRONTEND_ABI_PATH)) {
-      fs.mkdirSync(FRONTEND_ABI_PATH, { recursive: true });
+task("export-abi", "Exports contract ABIs to frontend or API")
+  .addOptionalParam("dest", "Destination repository (app or api)", "app")
+  .setAction(async (taskArgs, { artifacts }) => {
+    // Determine the destination path based on the parameter
+    const destination = taskArgs.dest.toLowerCase();
+    let targetPath;
+    
+    if (destination === "api") {
+      targetPath = "../totem-api/src/contracts";
+    } else {
+      // Default to app
+      targetPath = "../totem-app/src/contracts";
+    }
+    
+    console.log(`Exporting ABIs to: ${targetPath}`);
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true });
     }
 
     for (const contractName of CONTRACTS) {
       try {
         const artifact = await artifacts.readArtifact(contractName);
-        const filePath = path.join(FRONTEND_ABI_PATH, `${contractName}.abi.json`);
+        const filePath = path.join(targetPath, `${contractName}.abi.json`);
         fs.writeFileSync(filePath, JSON.stringify(artifact.abi, null, 2));
         console.log(`✅ ABI exported: ${filePath}`);
       } catch (error: any) {
