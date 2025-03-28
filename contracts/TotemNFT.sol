@@ -45,7 +45,7 @@ contract TotemNFT is
         Beaver,     // 4
         Deer,       // 5
         Woodpecker, // 6
-        Salmon,     // 7
+        Turtle,     // 7
         Bear,       // 8
         Raven,      // 9
         Snake,      // 10
@@ -593,7 +593,7 @@ contract TotemNFT is
         else if (species == Species.Beaver) {
             return (10 + bonus, 5 + bonus, 9 + bonus);  // Strength primary
         }
-        else if (species == Species.Salmon) {
+        else if (species == Species.Turtle) {
             return (10 + bonus, 8 + bonus, 6 + bonus);  // Strength primary
         }
         else if (species == Species.Owl) {
