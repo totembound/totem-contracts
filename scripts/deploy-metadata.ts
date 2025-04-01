@@ -172,11 +172,21 @@ async function main() {
         true,                             // Is limited rarity
         monthEnd                          // Expires end of month
     ); */
-    await game.createBundle(
+    /* await game.createBundle(
         ethers.parseEther("250"),         // 250 POL
         ethers.parseUnits("10000", 18),   // 10000 TOTEM
         2,                                // Species.Wolf
         18,                               // Color.VerdantGold
+        5,                                // Rarity.Limited
+        5,                                // Rarity.Limited
+        true,                             // Is limited rarity
+        monthEnd                          // Expires end of month
+    ); */
+    await game.createBundle(
+        ethers.parseEther("250"),         // 250 POL
+        ethers.parseUnits("10000", 18),   // 10000 TOTEM
+        3,                                // Species.Falcon
+        19,                               // Color.RaindropTeal
         5,                                // Rarity.Limited
         5,                                // Rarity.Limited
         true,                             // Is limited rarity
