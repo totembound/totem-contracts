@@ -127,7 +127,7 @@ async function main() {
                 domain: ethers.ZeroHash
             },
             maxAttempts: 5,
-            maxScore: 1500,
+            maxScore: 2000,
             achievementId: agilityAchievementId
         },
         {
@@ -144,7 +144,7 @@ async function main() {
                 domain: ethers.ZeroHash
             },
             maxAttempts: 5,
-            maxScore: 2000,
+            maxScore: 3000,
             achievementId: agilityAchievementId
         }
     ];
@@ -183,7 +183,7 @@ async function main() {
                 domain: ethers.ZeroHash
             },
             maxAttempts: 5,
-            maxScore: 1500,
+            maxScore: 2000,
             achievementId: wisdomAchievementId
         },
         {
@@ -200,7 +200,7 @@ async function main() {
                 domain: ethers.ZeroHash
             },
             maxAttempts: 5,
-            maxScore: 2000,
+            maxScore: 3000,
             achievementId: wisdomAchievementId
         }
     ];
