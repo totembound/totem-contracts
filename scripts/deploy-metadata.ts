@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers"; // Adjust the relative path based on your folder structure
-import { TotemGame, TotemNFT } from "../typechain-types"; // Adjust based on your typechain output directory
+import { TotemGame, TotemNFT, TotemShop } from "../typechain-types"; // Adjust based on your typechain output directory
 import { species, colors, stages, ipfsHashes } from "./totem-metadata";
 
 // Function to get last day of current month at midnight UTC
@@ -41,6 +41,11 @@ async function main() {
         "TotemGame",
         deployment.gameProxy
     ) as unknown as TotemGame;
+
+    const shop = await ethers.getContractAt(
+        "TotemShop",
+        deployment.shopProxy
+    ) as unknown as TotemShop;
 
     const nft = await ethers.getContractAt(
         "TotemNFT",
@@ -123,7 +128,7 @@ async function main() {
 
     // New Player Bundle (10 POL)
     console.log("Creating New Player Bundle...");
-    await game.createBundle(
+    await shop.createBundle(
         ethers.parseEther("10"),          // 10 POL
         ethers.parseUnits("1000", 18),    // 1000 TOTEM
         12,                               // Species.None (random)
@@ -136,7 +141,7 @@ async function main() {
 
     // Weekly Rare Bundle (20 POL)
     console.log("Creating Weekly Rare Bundle...");
-    await game.createBundle(
+    await shop.createBundle(
         ethers.parseEther("20"),          // 20 POL
         ethers.parseUnits("2000", 18),    // 2000 TOTEM
         12,                               // Species.None (random)
@@ -149,7 +154,7 @@ async function main() {
 
     // Weekly Epic Bundle (50 POL)
     console.log("Creating Weekly Epic Bundle...");
-    await game.createBundle(
+    await shop.createBundle(
         ethers.parseEther("50"),          // 50 POL
         ethers.parseUnits("5000", 18),    // 5000 TOTEM
         12,                               // Species.None (random)
@@ -182,7 +187,7 @@ async function main() {
         true,                             // Is limited rarity
         monthEnd                          // Expires end of month
     ); */
-    await game.createBundle(
+    await shop.createBundle(
         ethers.parseEther("250"),         // 250 POL
         ethers.parseUnits("10000", 18),   // 10000 TOTEM
         3,                                // Species.Falcon

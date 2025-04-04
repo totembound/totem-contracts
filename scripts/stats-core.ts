@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
-import { TotemGame, TotemNFT, TotemToken } from "../typechain-types";
+import { TotemGame, TotemNFT, TotemToken, TotemShop } from "../typechain-types";
 
 // Define enums to match the contract
 enum Species {
@@ -84,11 +84,17 @@ async function main() {
         deployment.tokenProxy  // Updated to use tokenProxy
     ) as unknown as TotemToken;
 
+    const shop = await ethers.getContractAt(
+        "TotemShop",
+        deployment.shopProxy
+    ) as unknown as TotemShop;
+
     // Get proxy admin info
     const proxyAdmin = await ethers.getContractAt("TotemProxyAdmin", deployment.proxyAdmin);
     console.log("=== Proxy Information ===");
     console.log(`Token Implementation: ${deployment.tokenImplementation}`);
     console.log(`Game Implementation: ${deployment.gameImplementation}`);
+    console.log(`Shop Implementation: ${deployment.shopImplementation}`);
     console.log(`Rewards Implementation: ${deployment.rewardsImplementation}`);
     console.log(`ProxyAdmin Owner: ${await proxyAdmin.owner()}\n`);
 
@@ -213,6 +219,73 @@ async function main() {
     stageCount.forEach((count, index) => {
         console.log(`Stage ${index}: ${count}`);
     });
+
+    console.log("\n=== Shop Configuration ===");
+    console.log(`Shop Address: ${deployment.shopProxy}`);
+    console.log(`Game's Authorized Shop: ${await game.authorizedShop()}`);
+    console.log(`Shop's Game Address: ${await shop.game()}`);
+    console.log(`Shop Trusted Forwarder: ${await shop.trustedForwarder()}`);
+    
+    // Get bundle information if available
+    try {
+        const bundleCount = await shop.nextBundleId();
+        console.log(`\nActive Bundles: ${bundleCount}`);
+        
+        for (let i = 0; i < Number(bundleCount); i++) {
+            const bundle = await shop.bundles(i);
+            console.log(`\nBundle #${i}:`);
+            console.log(`  POL Cost: ${ethers.formatEther(bundle.polCost)} POL`);
+            console.log(`  Token Amount: ${ethers.formatEther(bundle.tokenAmount)} TOTEM`);
+            console.log(`  Species: ${Species[Number(bundle.species)]}`);
+            console.log(`  Min Rarity: ${Rarity[Number(bundle.minRarity)]}`);
+            console.log(`  Max Rarity: ${Rarity[Number(bundle.maxRarity)]}`);
+            console.log(`  Enabled: ${bundle.enabled}`);
+            console.log(`  Limited Rarity: ${bundle.isLimitedRarity}`);
+            
+            const validUntil = bundle.validUntil;
+            if (validUntil.toString() === "0") {
+                console.log(`  Valid Until: No expiration`);
+            } else {
+                const expiryDate = new Date(Number(validUntil) * 1000);
+                console.log(`  Valid Until: ${expiryDate.toLocaleString()}`);
+            }
+        }
+    }
+    catch (error) {
+        console.log(`Error fetching bundle information: ${error}`);
+    }
+    
+    // Get marketplace information
+    try {
+        const unboundCount = await shop.getUnboundTotemCount();
+        console.log(`\nUnbound Totems in Marketplace: ${unboundCount}`);
+        
+        if (unboundCount > 0) {
+            const ids = await shop.getUnboundTokenIds(0, Number(unboundCount));
+            console.log(`  Token IDs: ${ids.join(', ')}`);
+            
+            if (unboundCount <= 5) { // Only show details for a reasonable number
+                console.log("\nMarketplace Listings:");
+                const totems = await shop.getUnboundTotems(0, Number(unboundCount));
+                
+                for (let i = 0; i < totems.length; i++) {
+                    const totem = totems[i];
+                    console.log(`\nTotem #${totem.tokenId}:`);
+                    console.log(`  Previous Owner: ${totem.previousOwner}`);
+                    console.log(`  Sell Price: ${ethers.formatEther(totem.sellPrice)} TOTEM`);
+                    console.log(`  Species: ${Species[Number(totem.species)]}`);
+                    console.log(`  Color: ${Color[Number(totem.color)]}`);
+                    console.log(`  Rarity: ${Rarity[Number(totem.rarity)]}`);
+                    console.log(`  Stage: ${totem.stage}`);
+                    console.log(`  Happiness: ${totem.happiness}`);
+                    console.log(`  Experience: ${totem.experience}`);
+                }
+            }
+        }
+    }
+    catch (error) {
+        console.log(`Error fetching marketplace information: ${error}`);
+    }
 
     // Additional token stats
     console.log("\n=== Token Statistics ===");

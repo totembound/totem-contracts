@@ -125,6 +125,32 @@ async function main() {
     const gameProxyAddress = await gameProxy.getAddress();
     console.log("Game Proxy deployed to:", gameProxyAddress);
 
+    // Deploy TotemShop Implementation
+    console.log("\nDeploying Shop Implementation...");
+    const TotemShop = await ethers.getContractFactory("TotemShop");
+    const shopImplementation = await TotemShop.deploy();
+    await shopImplementation.waitForDeployment();
+    const shopImplementationAddress = await shopImplementation.getAddress();
+    console.log("Shop Implementation deployed to:", shopImplementationAddress);
+    // Prepare Shop initialization data
+    const initShopData = TotemShop.interface.encodeFunctionData("initialize", [
+        gameProxyAddress,
+        tokenProxyAddress,
+        nftProxyAddress,
+        forwarderAddress
+    ]);
+
+    // Deploy Shop Proxy
+    console.log("\nDeploying Shop Proxy...");
+    const shopProxy = await TotemProxy.deploy(
+        shopImplementationAddress,
+        proxyAdminAddress,
+        initShopData
+    );
+    await shopProxy.waitForDeployment();
+    const shopProxyAddress = await shopProxy.getAddress();
+    console.log("Shop Proxy deployed to:", shopProxyAddress);
+
     // Deploy Rewards Implementation
     console.log("\nDeploying Rewards Implementation...");
     const TotemRewards = await ethers.getContractFactory("TotemRewards");
@@ -279,6 +305,12 @@ async function main() {
     await transferChallengesTx.wait();
     console.log("Challenges ownership transferred to game proxy");
 
+    // Add shop contract to game
+    console.log("\nSetting shop contract in game...");
+    const setShopTx = await totemGame.setAuthorizedShop(shopProxyAddress);
+    await setShopTx.wait();
+    console.log("Shop contract set in game");
+
     // Add challenges contract to game
     console.log("Setting challenges contract in game...");
     await (await totemGame.setChallenges(challengesProxyAddress)).wait();
@@ -290,8 +322,9 @@ async function main() {
         gameProxyAddress, 
         nftProxyAddress, 
         tokenProxyAddress, 
+        shopProxyAddress,
         rewardsProxyAddress
-    ], [true, true, true, true]);
+    ], [true, true, true, true, true]);
     await setForwarderTx.wait();
     console.log("\nForwarder proxy addresses configured");
 
@@ -308,6 +341,8 @@ async function main() {
         proxyAdmin: proxyAdminAddress,
         gameImplementation: gameImplementationAddress,
         gameProxy: gameProxyAddress,
+        shopImplementation: shopImplementationAddress,
+        shopProxy: shopProxyAddress,
         rewardsImplementation: rewardsImplementationAddress,
         rewardsProxy: rewardsProxyAddress,
         achievementsImplementation: achievementsImplementationAddress,
