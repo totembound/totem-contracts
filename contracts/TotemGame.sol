@@ -349,7 +349,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Mint NFT
         if (bundle.species == TotemNFT.Species.None) {
             // Random species, nft will determine rarity and color with oracle
-            uint8 randomSpecies = uint8(block.timestamp % uint8(TotemNFT.Species.None));
+            uint8[4] memory availableSpecies = [1, 2, 3, 11];
+            uint8 randomIndex = uint8(block.timestamp % availableSpecies.length);
+            uint8 randomSpecies = availableSpecies[randomIndex];
             tokenId = totemNFT.mintWithRarity(
                 user, 
                 TotemNFT.Species(randomSpecies),
