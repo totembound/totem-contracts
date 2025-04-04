@@ -4,8 +4,8 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { safeIncreaseTo } = require('./timeHelpers');
 
 describe("TotemGame", function () {
-    let TotemGame, TotemToken, TotemNFT, TotemProxy, TotemProxyAdmin;
-    let game, token, nft, proxy, proxyAdmin;
+    let TotemGame, TotemShop, TotemToken, TotemNFT, TotemProxy, TotemProxyAdmin;
+    let game, shop, token, nft, proxy, proxyAdmin;
     let owner, addr1, addr2, trustedForwarder;
     
     // Initial game parameters
@@ -98,6 +98,31 @@ describe("TotemGame", function () {
         // Get game contract interface at proxy address
         game = await ethers.getContractAt("TotemGame", await proxy.getAddress());
 
+        // Deploy Shop Implementation and Proxy
+        TotemShop = await ethers.getContractFactory("TotemShop");
+        const shopImpl = await TotemShop.deploy();
+
+        // Initialize shop proxy
+        const initShopData = TotemShop.interface.encodeFunctionData("initialize", [
+            await game.getAddress(),
+            await token.getAddress(),
+            await nft.getAddress(),
+            trustedForwarder.address
+        ]);
+
+        // Deploy shop proxy
+        const shopProxy = await TotemProxy.deploy(
+            await shopImpl.getAddress(),
+            owner.address,
+            initShopData
+        );
+
+        // Get shop interface at proxy address
+        shop = await ethers.getContractAt("TotemShop", await shopProxy.getAddress());
+
+        // Set shop as authorized in game
+        await game.setAuthorizedShop(await shop.getAddress());
+
         // Transfer token allocation to game contract
         await token.transferAllocation(
             0, // Game category
@@ -110,7 +135,7 @@ describe("TotemGame", function () {
     });
 
     describe("Initialization", function () {
-        it("Should initialize with correct parameters", async function () {
+        it("Should initialize game with correct parameters", async function () {
             expect(await game.totemToken()).to.equal(await token.getAddress());
             expect(await game.totemNFT()).to.equal(await nft.getAddress());
             expect(await game.trustedForwarder()).to.equal(trustedForwarder.address);
@@ -118,6 +143,17 @@ describe("TotemGame", function () {
             const params = await game.gameParams();
             expect(params.signupReward).to.equal(gameParams.signupReward);
             expect(params.mintPrice).to.equal(gameParams.mintPrice);
+        });
+
+        it("Should initialize shop with correct references", async function () {
+            expect(await shop.game()).to.equal(await game.getAddress());
+            expect(await shop.totemToken()).to.equal(await token.getAddress());
+            expect(await shop.totemNFT()).to.equal(await nft.getAddress());
+            expect(await shop.trustedForwarder()).to.equal(trustedForwarder.address);
+        });
+
+        it("Should have game authorize the shop", async function () {
+            expect(await game.authorizedShop()).to.equal(await shop.getAddress());
         });
 
         it("Should have correct time windows set", async function () {
@@ -172,19 +208,19 @@ describe("TotemGame", function () {
             const polAmount = ethers.parseEther("1");
             const initialBalance = await token.balanceOf(addr1.address);
             
-            await game.connect(addr1).buyTokens({ value: polAmount });
+            await shop.connect(addr1).buyTokens({ value: polAmount });
             
             expect(await token.balanceOf(addr1.address)).to.be.gt(initialBalance);
         });
 
         it("Should fail for non-signed up users", async function () {
-            await expect(game.connect(addr2).buyTokens({ value: ethers.parseEther("1") }))
-                .to.be.revertedWithCustomError(game, "NotSignedUp");
+            await expect(shop.connect(addr2).buyTokens({ value: ethers.parseEther("1") }))
+                .to.be.revertedWithCustomError(shop, "NotSignedUp");
         });
 
         it("Should fail with zero POL", async function () {
-            await expect(game.connect(addr1).buyTokens({ value: 0 }))
-                .to.be.revertedWithCustomError(game, "NoPolSent");
+            await expect(shop.connect(addr1).buyTokens({ value: 0 }))
+                .to.be.revertedWithCustomError(shop, "NoPolSent");
         });
     });
 
@@ -195,7 +231,7 @@ describe("TotemGame", function () {
         });
 
         it("Should allow purchasing a totem", async function () {
-            await game.connect(addr1).purchaseTotem(0); // First species
+            await shop.connect(addr1).purchaseTotem(0); // First species
             expect(await nft.balanceOf(addr1.address)).to.equal(1n);
             
             const expectedBalance = gameParams.signupReward - gameParams.mintPrice;
@@ -203,7 +239,7 @@ describe("TotemGame", function () {
         });
 
         it("Should initialize action tracking for new totem", async function () {
-            await game.connect(addr1).purchaseTotem(0);
+            await shop.connect(addr1).purchaseTotem(0);
             const tokenId = await nft.tokenOfOwnerByIndex(addr1.address, 0);
 
             // Check tracking initialization for each action
@@ -227,7 +263,7 @@ describe("TotemGame", function () {
             await token.connect(addr1).approve(await game.getAddress(), totalApproval);
             
             // Purchase totem
-            await game.connect(addr1).purchaseTotem(0);
+            await shop.connect(addr1).purchaseTotem(0);
             tokenId = await nft.tokenOfOwnerByIndex(addr1.address, 0);
 
         });
