@@ -32,7 +32,7 @@ Solidity smart contracts for the TotemBound NFT game ecosystem on Polygon.
 - ✅ Basic game mechanics
 - ✅ NFT metadata and URI handling
 - ✅ Meta-transaction support
-- 🔲 VRF integration
+- ✅ VRF integration
 - 🔲 Staking mechanism
 - 🔲 Marketplace for trading
 - 🔲 Governance features
@@ -59,7 +59,7 @@ cp .env.example .env
 4. Set up environment variables for testnet:
 ```plaintext
 PRIVATE_KEY=your_developer_private_key
-POLYGON_RPC_URL=your_polygon_rpc
+POLYGON_AMOY_RPC_URL=your_polygon_rpc
 ```
 
 ## Development
