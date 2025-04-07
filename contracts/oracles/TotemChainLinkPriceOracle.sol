@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import { ITotemPriceOracle } from "../interfaces/ITotemPriceOracle.sol";
 
 contract TotemChainlinkPriceOracle is ITotemPriceOracle, Ownable {
