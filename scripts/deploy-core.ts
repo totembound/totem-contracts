@@ -32,13 +32,39 @@ async function main() {
     const nftImplementationAddress = await nftImplementation.getAddress();
     console.log("TotemNFT deployed to:", nftImplementationAddress);
 
-    // Deploy MockRandomOracle for local development
-    console.log("\nDeploying MockRandomOracle...");
-    const MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
-    const mockRandomOracle = await MockRandomOracle.deploy();
-    await mockRandomOracle.waitForDeployment();
-    const mockRandomOracleAddress = await mockRandomOracle.getAddress();
-    console.log("MockRandomOracle deployed to:", mockRandomOracleAddress);
+    let randomOracleAddress = '';
+    if (networkName === "localhost" || networkName === "hardhat") {
+        // Deploy MockRandomOracle for local development
+        console.log("\nDeploying MockRandomOracle...");
+        const MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
+        const mockRandomOracle = await MockRandomOracle.deploy();
+        await mockRandomOracle.waitForDeployment();
+        randomOracleAddress = await mockRandomOracle.getAddress();
+        console.log("MockRandomOracle deployed to:", randomOracleAddress);
+    }
+    else {
+        // For testnet/mainnet, use TotemCachedRandomOracle
+        console.log("\nDeploying TotemCachedRandomOracle for testnet/mainnet...");
+
+         // Get VRF parameters from environment or config
+        const subscriptionId = process.env.VRF_SUBSCRIPTION_ID || "";
+        const vrfCoordinator = process.env.VRF_COORDINATOR || "";
+        const keyHash = process.env.VRF_KEY_HASH || "";
+        
+        if (!subscriptionId || !vrfCoordinator || !keyHash) {
+            throw new Error("Missing required VRF configuration");
+        }
+        
+        const TotemCachedRandomOracle = await ethers.getContractFactory("TotemCachedRandomOracle");
+        const cachedOracle = await TotemCachedRandomOracle.deploy(
+            subscriptionId,
+            vrfCoordinator,
+            keyHash
+        );
+        await cachedOracle.waitForDeployment();
+        randomOracleAddress = await cachedOracle.getAddress();
+        console.log("TotemCachedRandomOracle deployed to:", randomOracleAddress);
+    }
 
     // Deploy TotemTrustedForwarder
     console.log("\nDeploying TotemTrustedForwarder...");
@@ -256,7 +282,7 @@ async function main() {
 
     // Setup random oracle in NFT contract
     console.log("\nSetting random oracle in NFT contract...");
-    const setRandomOracleTx = await totemNFT.setRandomOracle(mockRandomOracleAddress);
+    const setRandomOracleTx = await totemNFT.setRandomOracle(randomOracleAddress);
     await setRandomOracleTx.wait();
     console.log("Random oracle set in NFT contract");
 
@@ -333,6 +359,7 @@ async function main() {
     const deploymentInfo = {
         network: networkName,
         priceOracle: oracleAddress,
+        randomOracle: randomOracleAddress,
         tokenImplementation: tokenImplementationAddress,
         tokenProxy: tokenProxyAddress,
         totemNFT: nftImplementationAddress,

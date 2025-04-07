@@ -163,14 +163,14 @@ contract TotemNFT is
         uint256 tokenId = _getNextTokenId();
         
         // Request randomness for rarity and color
-        uint256 requestId = randomOracle.requestRandomness(2);
-        // Get random values
+        uint256 requestId = randomOracle.requestRandomness(1);
+
+        // Get random value
         (bool fulfilled, uint256[] memory randomWords) = randomOracle.getRequestStatus(requestId);
         if (fulfilled == false) revert RandomRequestNotFulfilled();
 
-        // Determine rarity and color
-        uint8 rarity = RandomnessHelper.getRarity(randomWords[0]);
-        uint8 color = RandomnessHelper.getColorForRarity(randomWords[1], rarity);
+        // Determine both rarity and color from a single random number
+        (uint8 rarity, uint8 color) = RandomnessHelper.getRarityAndColor(randomWords[0]);
 
         if (Color(color) == Color.None) revert NoValidColorForRarity();
 
@@ -218,22 +218,29 @@ contract TotemNFT is
         uint256 tokenId = _getNextTokenId();
 
         // Request randomness for rarity and color selection
-        uint256 requestId = randomOracle.requestRandomness(2);
+        uint256 requestId = randomOracle.requestRandomness(1);
         (bool fulfilled, uint256[] memory randomWords) = randomOracle.getRequestStatus(requestId);
         if (!fulfilled) revert RandomRequestNotFulfilled();
 
         // Get rarity within range if specified
         uint8 rarity;
+        uint8 color;
+        
         if (minRarity == maxRarity) {
             rarity = uint8(minRarity);
+             // Use randomness to determine color only
+            color = RandomnessHelper.getColorForRarity(randomWords[0], rarity);
         } else {
             // Calculate rarity within range
             uint256 rarityRange = uint256(maxRarity) - uint256(minRarity) + 1;
             uint256 randomRarity = uint256(minRarity) + (randomWords[0] % rarityRange);
             rarity = uint8(randomRarity);
+            
+            // Use a different part of the randomness for color
+            color = RandomnessHelper.getColorForRarity(randomWords[0] >> 10, rarity);
         }
 
-        uint8 color = RandomnessHelper.getColorForRarity(randomWords[1], rarity);
+        if (Color(color) == Color.None) revert NoValidColorForRarity();
 
         _safeMint(to, tokenId);
 

@@ -22,7 +22,7 @@ library RandomnessHelper {
         
         if (rarity == 4) {           // Legendary: 2 colors
             rand = randomWord % 2;
-            return uint8(14 + rand);  // RadiantGold (14), EtherealSilver (15)
+            return uint8(14 + rand);  // EtherealSilver (14), RadiantGold (15)
         }
         
         if (rarity == 3) {           // Epic: 3 colors
@@ -43,5 +43,35 @@ library RandomnessHelper {
                                       // Common: 4 colors
         rand = randomWord % 4;
         return uint8(rand);           // Brown (0), Gray (1), White (2), Tawny (3)
+    }
+
+    function getRarityAndColor(uint256 randomWord) internal pure returns (uint8 rarity, uint8 color) {
+        // First determine rarity using same weights
+        uint256 rarityRand = randomWord % 1000; // 0-999
+        
+        if (rarityRand < 5) {
+            // Legendary: 0.5%
+            rarity = 4;
+            // Use a different bit range of the random word to determine color
+            color = uint8(14 + ((randomWord >> 10) % 2)); // 2 colors
+        } else if (rarityRand < 30) {
+            // Epic: 2.5%
+            rarity = 3;
+            color = uint8(11 + ((randomWord >> 10) % 3)); // 3 colors
+        } else if (rarityRand < 100) {
+            // Rare: 7%
+            rarity = 2;
+            color = uint8(8 + ((randomWord >> 10) % 3)); // 3 colors
+        } else if (rarityRand < 250) {
+            // Uncommon: 15%
+            rarity = 1;
+            color = uint8(4 + ((randomWord >> 10) % 4)); // 4 colors
+        } else {
+            // Common: 75%
+            rarity = 0;
+            color = uint8((randomWord >> 10) % 4); // 4 colors
+        }
+        
+        return (rarity, color);
     }
 }

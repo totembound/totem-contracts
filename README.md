@@ -32,7 +32,7 @@ Solidity smart contracts for the TotemBound NFT game ecosystem on Polygon.
 - ✅ Basic game mechanics
 - ✅ NFT metadata and URI handling
 - ✅ Meta-transaction support
-- 🔲 VRF integration
+- ✅ VRF integration
 - 🔲 Staking mechanism
 - 🔲 Marketplace for trading
 - 🔲 Governance features
@@ -59,7 +59,7 @@ cp .env.example .env
 4. Set up environment variables for testnet:
 ```plaintext
 PRIVATE_KEY=your_developer_private_key
-POLYGON_RPC_URL=your_polygon_rpc
+POLYGON_AMOY_RPC_URL=your_polygon_rpc
 ```
 
 ## Development
@@ -97,13 +97,13 @@ npx hardhat run scripts/stats.ts --network localhost
 ```
 ## Chainlink VRF Setup Instructions
 1. Create VRF subscription on Chainlink website
-2. Fund subscription with LINK tokens
+2. Fund subscription with LINK or POL tokens
 3. Add consumer contract to subscription
 4. Configure environment variables:
 ```plaintext
-CHAINLINK_VRF_COORDINATOR=xxx
-CHAINLINK_SUBSCRIPTION_ID=xxx
-CHAINLINK_KEY_HASH=xxx
+VRF_COORDINATOR=xxx
+VRF_SUBSCRIPTION_ID=xxx
+VRF_KEY_HASH=xxx
 ```
 
 ## Project Structure
