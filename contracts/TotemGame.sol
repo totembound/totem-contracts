@@ -6,6 +6,7 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
 import { ITotemChallenges } from "./interfaces/ITotemChallenges.sol";
+import { ITotemExpeditions } from "./interfaces/ITotemExpeditions.sol";
 import { TotemToken } from "./TotemToken.sol";
 import { TotemNFT } from "./TotemNFT.sol";
 
@@ -32,6 +33,8 @@ error TotemIneligible();
 error InvalidScore();
 error DailyChallengesExceeded();
 error UnauthorizedShop();
+error UnauthorizedContract();
+error NoTotemsSelected();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core game mechanics structs
@@ -39,6 +42,12 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         Feed,
         Train,
         Treat
+    }
+
+    enum RuneType { 
+        Lesser, 
+        Greater, 
+        Ancient 
     }
 
     struct ActionConfig {
@@ -81,6 +90,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     TotemNFT public totemNFT;
     ITotemAchievements public achievements;
     ITotemChallenges public challenges;
+    ITotemExpeditions public expeditions;
     address public trustedForwarder;
     address public authorizedShop;
     GameParameters public gameParams;
@@ -90,6 +100,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Action configuration and tracking
     mapping(ActionType => ActionConfig) public actionConfigs;
     mapping(uint256 => mapping(ActionType => ActionTracking)) public actionTracking;
+    // Rune tracking
+    mapping(address => mapping(RuneType => uint256)) public runeBalances;
 
     // Constants
     uint256 private constant _SECONDS_PER_DAY = 86400;
@@ -108,6 +120,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
     event TrustedForwarderUpdated(address newForwarder);
     event ShopAuthorized(address shop);
+    event ExpeditionFeeProcessed(address indexed user, bytes32 expeditionId, uint256 totemCost, uint256 happinessCost, uint256[3] totemIds);
+    event ExpeditionRewardsClaimed(address indexed user, bytes32 expeditionId, uint256 experienceGain, uint256[3] totemIds, uint256[3] runeRewards, uint256 score);
+    event RunesAwarded(address indexed user, uint8 runeType, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -408,6 +423,85 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit ChallengeCompleted(challengeId, tokenId, score);
     }
 
+    function processExpeditionFee(
+        bytes32 expeditionId,
+        address user,
+        uint256 totemCost,
+        uint256 happinessCost,
+        uint256[3] calldata totemIds
+    ) external returns (bool success) {
+        // Only allow calls from the Expeditions contract
+        if (msg.sender != address(expeditions)) revert UnauthorizedContract();
+        
+        // Validate inputs
+        if (totemIds.length == 0) revert NoTotemsSelected();
+        
+        // Take TOTEM payment
+        if (!totemToken.transferFrom(user, address(this), totemCost)) 
+            revert PaymentFailed();
+        
+        // Apply happiness cost to all participating totems
+        for (uint256 i = 0; i < totemIds.length; i++) {
+            uint256 tokenId = totemIds[i];
+            
+            // Verify ownership
+            if (totemNFT.ownerOf(tokenId) != user) revert NotTokenOwner();
+            
+            // Apply happiness reduction
+            totemNFT.updateAttributes(tokenId, happinessCost, false, 0);
+        }
+        
+        emit ExpeditionFeeProcessed(user, expeditionId, totemCost, happinessCost, totemIds);
+        return true;
+    }
+
+    function processExpeditionRewards(
+        bytes32 expeditionId,
+        address user,
+        uint256 experienceGain,
+        uint256[3] calldata totemIds,
+        uint256[3] calldata runeRewards,
+        uint256 score
+    ) external returns (bool success) {
+        // Only allow calls from the Expeditions contract
+        if (msg.sender != address(expeditions)) revert UnauthorizedContract();
+        
+        // Validate inputs
+        if (totemIds.length == 0) revert NoTotemsSelected();
+        
+        // Award experience to all participating totems
+        for (uint256 i = 0; i < totemIds.length; i++) {
+            uint256 tokenId = totemIds[i];
+            
+            // Verify ownership (this is defensive, as they might have transferred tokens)
+            if (totemNFT.ownerOf(tokenId) != user) {
+                continue; // Skip if no longer owned
+            }
+            
+            // Award experience
+            totemNFT.updateAttributes(tokenId, 0, true, experienceGain);
+        }
+        
+        // Process rune rewards
+        if (runeRewards[0] > 0) {
+            // Award Lesser Runes
+            _awardRunes(user, 0, runeRewards[0]);
+        }
+        
+        if (runeRewards[1] > 0) {
+            // Award Greater Runes
+            _awardRunes(user, 1, runeRewards[1]);
+        }
+        
+        if (runeRewards[2] > 0) {
+            // Award Ancient Runes
+            _awardRunes(user, 2, runeRewards[2]);
+        }
+        
+        emit ExpeditionRewardsClaimed(user, expeditionId, experienceGain, totemIds, runeRewards, score);
+        return true;
+    }
+
     // Convenience functions for actions
     function feed(uint256 tokenId) external {
         executeAction(tokenId, ActionType.Feed);
@@ -419,11 +513,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function treat(uint256 tokenId) external {
         executeAction(tokenId, ActionType.Treat);
-    }
-
-    function setAuthorizedShop(address _shop) external onlyOwner {
-        if (_shop == address(0)) revert InvalidAddress();
-        authorizedShop = _shop;
     }
 
     function setMetadataURI(
@@ -478,6 +567,11 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         challenges.setChallengeMetadata(challengeId, key, value);
     }
 
+    function setAuthorizedShop(address _shop) external onlyOwner {
+        if (_shop == address(0)) revert InvalidAddress();
+        authorizedShop = _shop;
+    }
+
     function setAchievements(address _achievements) external onlyOwner {
         if (_achievements == address(0)) revert InvalidAddress();
         achievements = ITotemAchievements(_achievements);
@@ -486,6 +580,11 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function setChallenges(address _challenges) external onlyOwner {
         if (_challenges == address(0)) revert InvalidAddress();
         challenges = ITotemChallenges(_challenges);
+    }
+
+    function setExpeditions(address _expeditions) external onlyOwner {
+        if (_expeditions == address(0)) revert InvalidAddress();
+        expeditions = ITotemExpeditions(_expeditions);
     }
 
     function updateActionConfig(
@@ -527,6 +626,14 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // View functions
+    function getUserRuneBalances(address user) external view returns (uint256[3] memory) {
+        uint256[3] memory balances;
+        balances[0] = runeBalances[user][RuneType.Lesser];
+        balances[1] = runeBalances[user][RuneType.Greater];
+        balances[2] = runeBalances[user][RuneType.Ancient];
+        return balances;
+    }
+
     function canUseAction(uint256 tokenId, ActionType actionType) external view returns (bool) {
         // Internal implementation details
         return _canUseAction(tokenId, actionType);
@@ -637,6 +744,25 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
 
         emit ActionPerformed(tokenId, actionType);
+    }
+
+    function _awardRunes(address user, uint8 runeType, uint256 amount) internal {
+        if (amount == 0) return;
+        
+        // Implementation depends on how runes are tracked
+        // This is a placeholder implementation
+        if (runeType == 0) {
+            // Award Lesser Runes
+            runeBalances[user][RuneType.Lesser] += amount;
+        } else if (runeType == 1) {
+            // Award Greater Runes
+            runeBalances[user][RuneType.Greater] += amount;
+        } else if (runeType == 2) {
+            // Award Ancient Runes
+            runeBalances[user][RuneType.Ancient] += amount;
+        }
+        
+        emit RunesAwarded(user, runeType, amount);
     }
 
     // Initialize action tracking when NFT is minted
