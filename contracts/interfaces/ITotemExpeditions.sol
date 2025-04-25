@@ -48,6 +48,7 @@ interface ITotemExpeditions {
         uint256 baseExperience,
         uint8[3] memory affinityWeights,
         uint8[3] memory runeDropChances,
+        uint8 minStage,
         bool enabled
     );
     
@@ -76,7 +77,8 @@ interface ITotemExpeditions {
         uint256 happinessCost,
         uint256 baseExperience,
         uint8[3] memory affinityWeights,
-        uint8[3] memory runeDropChances
+        uint8[3] memory runeDropChances,
+        uint8 minStage
     ) external;
     
     function setAchievements(address _achievements) external;

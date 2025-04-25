@@ -23,6 +23,7 @@ error ExpeditionNotComplete();
 error ExpeditionAlreadyClaimed();
 error GameProcessingFailed();
 error ActiveExpeditionExists();
+error InsufficientTotemStage();
 
 contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
@@ -35,6 +36,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256 baseExperience;   // per totem
         uint8[3] affinityWeights; // [Strength, Agility, Wisdom] weights (0-10)
         uint8[3] runeDropChances; // [Lesser, Greater, Ancient]
+        uint8 minStage;           // Minimum stage requirement
         bool enabled;
     }
     
@@ -106,7 +108,8 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256 happinessCost,
         uint256 baseExperience,
         uint8[3] memory affinityWeights,
-        uint8[3] memory runeDropChances
+        uint8[3] memory runeDropChances,
+        uint8 minStage
     ) external onlyOwner {
         // Generate expedition ID from string
         bytes32 expeditionId = keccak256(bytes(idString));
@@ -121,6 +124,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             baseExperience: baseExperience,
             affinityWeights: affinityWeights,
             runeDropChances: runeDropChances,
+            minStage: minStage,
             enabled: true
         });
         
@@ -168,15 +172,15 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             ,
             uint256 captainHappiness,
             ,
+            uint256 captainStage,
             ,
             ,
-            ,
-            
         ) = totemNFT.attributes(captainId);
         
         // Check captain happiness
         if (captainHappiness < config.happinessCost) revert TotemHappinessLow();
-        
+        if (captainStage < config.minStage) revert InsufficientTotemStage();
+
         Domain captainDomain = _getTotemDomain(captainSpecies);
 
         // Check if captain domain matches expedition domain
@@ -190,13 +194,13 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
                 ,
                 uint256 memberHappiness,
                 ,
+                uint256 memberStage,
                 ,
                 ,
-                ,
-                
             ) = totemNFT.attributes(totemIds[i]);
             
             if (memberHappiness < config.happinessCost) revert TotemHappinessLow();
+            if (memberStage < config.minStage) revert InsufficientTotemStage();
         }
 
         // Take payment
@@ -384,6 +388,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256 baseExperience,
         uint8[3] memory affinityWeights,
         uint8[3] memory runeDropChances,
+        uint8 minStage,
         bool enabled
     ) {
         ExpeditionConfig storage config = expeditionConfigs[expeditionId];
@@ -397,6 +402,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             config.baseExperience,
             config.affinityWeights,
             config.runeDropChances,
+            config.minStage,
             config.enabled
         );
     }

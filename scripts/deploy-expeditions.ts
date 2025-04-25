@@ -97,7 +97,8 @@ async function main() {
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
             affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 0, 0] // 100% Lesser, 0% Greater, 0% Ancient
+            runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "wind-scout-patrol",
@@ -108,7 +109,8 @@ async function main() {
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
-            runeDropChances: [100, 0, 0] // 100% Lesser, 0% Greater, 0% Ancient
+            runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "quick-study-ritual",
@@ -119,7 +121,8 @@ async function main() {
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
-            runeDropChances: [100, 0, 0] // 100% Lesser, 0% Greater, 0% Ancient
+            runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         }
     ];
     
@@ -134,7 +137,8 @@ async function main() {
             happinessCost: 10,
             baseExp: 30, // 5 XP per hour
             affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 25, 0] // 100% Lesser, 25% Greater, 0% Ancient
+            runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "diplomatic-envoy",
@@ -145,7 +149,8 @@ async function main() {
             happinessCost: 10,
             baseExp: 30, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
-            runeDropChances: [100, 25, 0] // 100% Lesser, 25% Greater, 0% Ancient
+            runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "basic-research-mission",
@@ -156,7 +161,8 @@ async function main() {
             happinessCost: 10,
             baseExp: 30, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
-            runeDropChances: [100, 25, 0] // 100% Lesser, 25% Greater, 0% Ancient
+            runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
+            minStage: 1 // Stage 2
         }
     ];
     
@@ -171,7 +177,8 @@ async function main() {
             happinessCost: 15,
             baseExp: 60, // 5 XP per hour
             affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 50, 10] // 100% Lesser, 50% Greater, 10% Ancient
+            runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "festival-envoy",
@@ -182,7 +189,8 @@ async function main() {
             happinessCost: 15,
             baseExp: 60, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
-            runeDropChances: [100, 50, 10] // 100% Lesser, 50% Greater, 10% Ancient
+            runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
+            minStage: 1 // Stage 2
         },
         {
             id: "sigil-synthesis",
@@ -193,7 +201,8 @@ async function main() {
             happinessCost: 15,
             baseExp: 60, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
-            runeDropChances: [100, 50, 10] // 100% Lesser, 50% Greater, 10% Ancient
+            runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
+            minStage: 1 // Stage 2
         }
     ];
     
@@ -208,7 +217,8 @@ async function main() {
             happinessCost: 20,
             baseExp: 120, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
-            runeDropChances: [100, 75, 25] // 100% Lesser, 75% Greater, 25% Ancient
+            runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
+            minStage: 2 // Stage 3
         },
         {
             id: "celestial-mapping",
@@ -219,7 +229,8 @@ async function main() {
             happinessCost: 20,
             baseExp: 120, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
-            runeDropChances: [100, 75, 25] // 100% Lesser, 75% Greater, 25% Ancient
+            runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
+            minStage: 2 // Stage 3
         },
         {
             id: "spirit-diplomacy",
@@ -230,7 +241,8 @@ async function main() {
             happinessCost: 20,
             baseExp: 120, // 5 XP per hour
             affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 75, 25] // 100% Lesser, 75% Greater, 25% Ancient
+            runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
+            minStage: 2 // Stage 3
         }
     ];
     
@@ -253,7 +265,8 @@ async function main() {
             config.happinessCost,
             config.baseExp,
             config.affinityWeights as [number, number, number],
-            config.runeDropChances as [number, number, number]
+            config.runeDropChances as [number, number, number],
+            config.minStage
         );
         await tx.wait();
         console.log(`${config.name} configured!`);
