@@ -358,6 +358,7 @@ async function main() {
     console.log("\nSaving deployment info...");
     const deploymentInfo = {
         network: networkName,
+        deployer: deployer.address,
         priceOracle: oracleAddress,
         randomOracle: randomOracleAddress,
         tokenImplementation: tokenImplementationAddress,
@@ -376,7 +377,6 @@ async function main() {
         achievementsProxy: achievementsProxyAddress,
         challengesImplementation: challengesImplementationAddress,
         challengesProxy: challengesProxyAddress,
-        deployer: deployer.address,
     };
     saveDeployment(networkName, deploymentInfo);
 

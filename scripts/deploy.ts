@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 // Get arguments
 const network = process.env.NETWORK || 'localhost';
 const startStep = parseInt(process.env.START_STEP || '1');
-const endStep = parseInt(process.env.END_STEP || '5');
+const endStep = parseInt(process.env.END_STEP || '6');
 
 console.log(`Deploying to network: ${network}`);
 console.log(`Steps: ${startStep} to ${endStep}`);
@@ -13,6 +13,7 @@ const steps = [
     { script: './scripts/deploy-core.ts', name: 'Core Contracts' },
     { script: './scripts/deploy-achievements.ts', name: 'Achievements' },
     { script: './scripts/deploy-challenges.ts', name: 'Challenges' },
+    { script: './scripts/deploy-expeditions.ts', name: 'Expeditions' },
     { script: './scripts/deploy-rewards.ts', name: 'Rewards System' },
     { script: './scripts/deploy-metadata.ts', name: 'Configure Metadata' }
 ];
