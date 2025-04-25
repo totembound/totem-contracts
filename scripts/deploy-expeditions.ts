@@ -92,7 +92,7 @@ async function main() {
             id: "harvesting-run",
             name: "Harvesting Run",
             domain: 0, // Land
-            duration: 180,// hoursToSeconds(3),
+            duration: hoursToSeconds(3),
             totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
@@ -104,7 +104,7 @@ async function main() {
             id: "wind-scout-patrol",
             name: "Wind Scout Patrol",
             domain: 1, // Air
-            duration: 180, // hoursToSeconds(3),
+            duration: hoursToSeconds(3),
             totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
@@ -116,7 +116,7 @@ async function main() {
             id: "quick-study-ritual",
             name: "Quick Study Ritual",
             domain: 2, // Water
-            duration: 120, // hoursToSeconds(3),
+            duration: hoursToSeconds(3),
             totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
@@ -132,7 +132,7 @@ async function main() {
             id: "ruins-recovery",
             name: "Ruins Recovery",
             domain: 0, // Land
-            duration: 120,// hoursToSeconds(6),
+            duration: hoursToSeconds(6),
             totemCost: ethers.parseUnits("10", 18), // 10 TOTEM
             happinessCost: 10,
             baseExp: 30, // 5 XP per hour
@@ -212,7 +212,7 @@ async function main() {
             id: "deep-exploration",
             name: "Deep Exploration",
             domain: 0, // Land
-            duration: 120, // hoursToSeconds(24),
+            duration: hoursToSeconds(24),
             totemCost: ethers.parseUnits("20", 18), // 20 TOTEM
             happinessCost: 20,
             baseExp: 120, // 5 XP per hour
