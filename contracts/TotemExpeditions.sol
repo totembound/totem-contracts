@@ -511,18 +511,23 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             ,
             ,
             ,
-            ,
+            uint256 captainStage,
             ,
             ,
             
         ) = totemNFT.attributes(totemIds[0]);
 
         Domain captainDomain = _getTotemDomain(captainSpecies);
+        // Captain domain match bonus (+10)
         if (captainDomain == config.domain) {
-            // Captain domain match bonus (+10)
             score += 10;
         }
         
+        // Captain Elder stage bonus (+5)
+        if (captainStage >= 4) {
+            score += 5;
+        }
+
         // Check affinity matches for all team members
         uint256[3] memory affinityMatches;
         for (uint256 i = 1; i < 3; i++) {
