@@ -56,14 +56,14 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
     address public trustedForwarder;
     
     // Simplified storage
-    mapping(bytes32 => ExpeditionConfig) private expeditionConfigs;
-    mapping(uint256 => bool) private totemInExpedition;
-    mapping(uint256 => uint256) private totemExpeditionEndTime;
-    mapping(address => UserExpedition[]) private userExpeditions;
-    bytes32[] private expeditionIds;
+    mapping(bytes32 => ExpeditionConfig) private _expeditionConfigs;
+    mapping(uint256 => bool) private _totemInExpedition;
+    mapping(uint256 => uint256) private _totemExpeditionEndTime;
+    mapping(address => UserExpedition[]) private _userExpeditions;
+    bytes32[] private _expeditionIds;
     
     // Achievement tracking
-    bytes32 private constant EXPEDITION_ACHIEVEMENT_ID = keccak256("expedition_progression");
+    bytes32 private constant _EXPEDITION_ACHIEVEMENT_ID = keccak256("expedition_progression");
     
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -115,7 +115,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         bytes32 expeditionId = keccak256(bytes(idString));
         
         // Configure expedition
-        expeditionConfigs[expeditionId] = ExpeditionConfig({
+        _expeditionConfigs[expeditionId] = ExpeditionConfig({
             name: name,
             domain: Domain(domain),
             duration: duration,
@@ -144,12 +144,12 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         address user = _msgSender();
         
         // Validate expedition configuration
-        ExpeditionConfig storage config = expeditionConfigs[expeditionId];
+        ExpeditionConfig storage config = _expeditionConfigs[expeditionId];
         if (bytes(config.name).length == 0) revert ExpeditionNotFound();
         if (!config.enabled) revert ExpeditionNotFound();
         
         // Check if user already has an active expedition
-        UserExpedition[] storage userExps = userExpeditions[user];
+        UserExpedition[] storage userExps = _userExpeditions[user];
         for (uint256 i = 0; i < userExps.length; i++) {
             if (userExps[i].expeditionId == expeditionId && !userExps[i].completed) {
                 revert ActiveExpeditionExists();
@@ -162,7 +162,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             // Validate token ownership
             if (totemNFT.ownerOf(totemIds[i]) != user) revert NotTokenOwner();
             // Check if totems are already on expedition
-            if (totemInExpedition[totemIds[i]]) revert TotemsOnExpedition();
+            if (_totemInExpedition[totemIds[i]]) revert TotemsOnExpedition();
         }
         
         // Get captain attributes - need to access the NFT's metadata to get domain
@@ -219,12 +219,12 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Mark totems as on expedition
         for (uint256 i = 0; i < 3; i++) {
-            totemInExpedition[totemIds[i]] = true;
-            totemExpeditionEndTime[totemIds[i]] = endTime;
+            _totemInExpedition[totemIds[i]] = true;
+            _totemExpeditionEndTime[totemIds[i]] = endTime;
         }
         
         // Record user expedition
-        userExpeditions[user].push(UserExpedition({
+        _userExpeditions[user].push(UserExpedition({
             expeditionId: expeditionId,
             totemIds: totemIds,
             startTime: block.timestamp,
@@ -243,7 +243,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Find the expedition with this ID
         uint256 expeditionIndex = type(uint256).max; // Invalid value
-        UserExpedition[] storage userExps = userExpeditions[user];
+        UserExpedition[] storage userExps = _userExpeditions[user];
         
         for (uint256 i = 0; i < userExps.length; i++) {
             if (userExps[i].expeditionId == expeditionId && !userExps[i].completed) {
@@ -254,7 +254,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Verify expedition exists
         if (expeditionIndex == type(uint256).max) revert ExpeditionNotFound();
-        UserExpedition storage expedition = userExpeditions[user][expeditionIndex];
+        UserExpedition storage expedition = _userExpeditions[user][expeditionIndex];
 
         // Verify it can be claimed
         if (expedition.completed) revert ExpeditionAlreadyClaimed();
@@ -265,11 +265,11 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Release totems from expedition
         for (uint256 i = 0; i < 3; i++) {
-            totemInExpedition[expedition.totemIds[i]] = false;
+            _totemInExpedition[expedition.totemIds[i]] = false;
         }
         
         // Get expedition config
-        ExpeditionConfig storage config = expeditionConfigs[expedition.expeditionId];
+        ExpeditionConfig storage config = _expeditionConfigs[expedition.expeditionId];
         
         // Calculate expedition success (score out of 100)
         uint256 score = _calculateExpeditionScore(
@@ -340,7 +340,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Update achievements
         if (address(achievements) != address(0)) {
-            achievements.updateProgress(EXPEDITION_ACHIEVEMENT_ID, user, 1);
+            achievements.updateProgress(_EXPEDITION_ACHIEVEMENT_ID, user, 1);
         }
         
         emit ExpeditionCompleted(user, expedition.expeditionId, expedition.totemIds);
@@ -363,8 +363,8 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
      * @dev Check if a totem is on an expedition
      */
     function isTotemOnExpedition(uint256 tokenId) external view returns (bool, uint256) {
-        if (totemInExpedition[tokenId]) {
-            return (true, totemExpeditionEndTime[tokenId]);
+        if (_totemInExpedition[tokenId]) {
+            return (true, _totemExpeditionEndTime[tokenId]);
         }
         return (false, 0);
     }
@@ -373,7 +373,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
      * @dev Get all expedition configurations
      */
     function getExpeditions() external view returns (bytes32[] memory) {
-        return expeditionIds;
+        return _expeditionIds;
     }
     
     /**
@@ -391,7 +391,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint8 minStage,
         bool enabled
     ) {
-        ExpeditionConfig storage config = expeditionConfigs[expeditionId];
+        ExpeditionConfig storage config = _expeditionConfigs[expeditionId];
         
         return (
             config.name,
@@ -417,7 +417,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         bool[] memory completed,
         bool[] memory canClaim
     ) {
-        UserExpedition[] storage userExps = userExpeditions[user];
+        UserExpedition[] storage userExps = _userExpeditions[user];
         uint256 count = userExps.length;
         
         ids = new bytes32[](count);
@@ -450,7 +450,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256[] memory endTimes,
         bool[] memory canClaim
     ) {
-        UserExpedition[] storage userExps = userExpeditions[user];
+        UserExpedition[] storage userExps = _userExpeditions[user];
         
         // First count active expeditions
         uint256 activeCount = 0;
@@ -483,6 +483,18 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         }
         
         return (ids, totemIds, endTimes, canClaim);
+    }
+
+    /**
+     * @dev Add expedition ID to the list if not already present
+     */
+    function _addToExpeditions(bytes32 expeditionId) internal {
+        for (uint256 i = 0; i < _expeditionIds.length; i++) {
+            if (_expeditionIds[i] == expeditionId) {
+                return;
+            }
+        }
+        _expeditionIds.push(expeditionId);
     }
 
     function _calculateExpeditionScore(
@@ -585,7 +597,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         return score;
     }
-
+    
      function _getTotemAffinity(TotemNFT.Species species) internal pure returns (Affinity) {
         // Map species to affinity based on their primary stat
         if (species == TotemNFT.Species.Bear || 
@@ -624,18 +636,6 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         }
     }
 
-    /**
-     * @dev Add expedition ID to the list if not already present
-     */
-    function _addToExpeditions(bytes32 expeditionId) internal {
-        for (uint256 i = 0; i < expeditionIds.length; i++) {
-            if (expeditionIds[i] == expeditionId) {
-                return;
-            }
-        }
-        expeditionIds.push(expeditionId);
-    }
-    
     // Upgrade authorization
     // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {

@@ -34,6 +34,23 @@ interface ITotemExpeditions {
     
     function claimExpeditionRewards(bytes32 expeditionId) external;
     
+    // Admin functions
+    function configureExpedition(
+        string memory idString,
+        string memory name,
+        uint8 domain,
+        uint256 duration,
+        uint256 totemCost,
+        uint256 happinessCost,
+        uint256 baseExperience,
+        uint8[3] memory affinityWeights,
+        uint8[3] memory runeDropChances,
+        uint8 minStage
+    ) external;
+    
+    function setAchievements(address _achievements) external;
+    function setGame(address _game) external;
+
     // View functions
     function isTotemOnExpedition(uint256 tokenId) external view returns (bool, uint256);
     
@@ -66,21 +83,4 @@ interface ITotemExpeditions {
         uint256[] memory endTimes,
         bool[] memory canClaim
     );
-
-    // Admin functions
-    function configureExpedition(
-        string memory idString,
-        string memory name,
-        uint8 domain,
-        uint256 duration,
-        uint256 totemCost,
-        uint256 happinessCost,
-        uint256 baseExperience,
-        uint8[3] memory affinityWeights,
-        uint8[3] memory runeDropChances,
-        uint8 minStage
-    ) external;
-    
-    function setAchievements(address _achievements) external;
-    function setGame(address _game) external;
 }

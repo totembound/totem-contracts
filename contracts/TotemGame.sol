@@ -120,8 +120,19 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
     event TrustedForwarderUpdated(address newForwarder);
     event ShopAuthorized(address shop);
-    event ExpeditionFeeProcessed(address indexed user, bytes32 expeditionId, uint256 totemCost, uint256 happinessCost, uint256[3] totemIds);
-    event ExpeditionRewardsClaimed(address indexed user, bytes32 expeditionId, uint256 experienceGain, uint256[3] totemIds, uint256[3] runeRewards, uint256 score);
+    event ExpeditionFeeProcessed(
+        address indexed user, 
+        bytes32 expeditionId, 
+        uint256 totemCost, 
+        uint256 happinessCost, 
+        uint256[3] totemIds);
+    event ExpeditionRewardsClaimed(
+        address indexed user, 
+        bytes32 expeditionId, 
+        uint256 experienceGain, 
+        uint256[3] totemIds, 
+        uint256[3] runeRewards, 
+        uint256 score);
     event RunesAwarded(address indexed user, uint8 runeType, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
