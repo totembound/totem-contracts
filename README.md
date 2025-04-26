@@ -10,7 +10,11 @@ Solidity smart contracts for the TotemBound NFT game ecosystem on Polygon.
 - **TotemTrustedForwarder.sol**: Meta-transaction handling
 - **TotemProxy**:  Proxy contract for upgrades
 - **TotemProxyAdmin**: Admin contract for proxy management
-- **TotemRandom**: Chainlink VRF integration for randomness
+- **TotemAchievements**: Achievements management
+- **TotemChallenges**: Challenges management
+- **TotemExpeditions**: Expeditions management
+- **TotemShop**: Shop marketplace to buy, sell totems
+- **TotemCachedRandomOracle**: Chainlink VRF integration for randomness
 
 ## Prerequisites
 - Node.js (v16+)

@@ -56,7 +56,17 @@ const config: HardhatUserConfig = {
   }
 };
 
-const CONTRACTS = ["TotemGame", "TotemNFT", "TotemRewards", "TotemAchievements", "TotemToken", "TotemChallenges", "TotemShop", "TotemTrustedForwarder"];
+const CONTRACTS = [
+  "TotemGame", 
+  "TotemNFT", 
+  "TotemToken", 
+  "TotemRewards", 
+  "TotemAchievements", 
+  "TotemChallenges", 
+  "TotemExpeditions", 
+  "TotemShop", 
+  "TotemTrustedForwarder"
+];
 
 task("export-abi", "Exports contract ABIs to frontend or API")
   .addOptionalParam("dest", "Destination repository (app or api)", "app")
