@@ -245,9 +245,11 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256 expeditionIndex = type(uint256).max; // Invalid value
         UserExpedition[] storage userExps = _userExpeditions[user];
         
-        for (uint256 i = 0; i < userExps.length; i++) {
-            if (userExps[i].expeditionId == expeditionId && !userExps[i].completed) {
-                expeditionIndex = i;
+        // Start from the end to find the most recent expeditions first
+        for (uint256 i = userExps.length; i > 0; i--) {
+            uint256 index = i - 1; // Prevents underflow
+            if (userExps[index].expeditionId == expeditionId) {
+                expeditionIndex = index;
                 break;
             }
         }
