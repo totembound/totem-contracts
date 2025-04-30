@@ -32,6 +32,15 @@ function getEndOfWeek(): number {
     return Math.floor(endOfWeek.getTime() / 1000) - 1;
 }
 
+// Helper function to split arrays into batches
+function splitIntoBatches<T>(array: T[], batchSize: number): T[][] {
+    const batches: T[][] = [];
+    for (let i = 0; i < array.length; i += batchSize) {
+        batches.push(array.slice(i, i + batchSize));
+    }
+    return batches;
+}
+
 async function main() {
     const networkName = network.name;
     const deployment = loadDeployment(networkName);
@@ -79,47 +88,63 @@ async function main() {
         throw new Error("Array lengths do not match");
     }
 
-    // Call through the game contract
-    console.log("Setting metadata URIs through game contract...");
-    const tx = await game.setMetadataURIs(species, colors, stages, ipfsHashes);
-    console.log("Transaction hash:", tx.hash);
-    const receipt = await tx.wait();
-    console.log("Metadata URIs have been set successfully!");
 
-    // Look for MetadataURISet events
-    console.log("\nChecking emitted events:");
-    const metadataEvents = receipt?.logs
-        .filter(log => {
-            try {
-                return nft.interface.parseLog(log)?.name === 'MetadataURISet';
-            }
-            catch {
-                return false;
-            }
-        })
-        .map(log => {
-            const parsed = nft.interface.parseLog(log);
-            return {
-                species: parsed?.args.species,
-                color: parsed?.args.color,
-                stage: parsed?.args.stage,
-                uri: parsed?.args.uri
-            };
-        });
+    // BATCH PROCESSING - Split into smaller batches to avoid gas issues
+    const BATCH_SIZE = 85; // Adjust this number based on your needs
 
-    if (metadataEvents && metadataEvents.length > 0) {
-        console.log(`\nMetadata URIs set: ${metadataEvents.length}`);
-        /* metadataEvents?.forEach((event, i) => {
-            console.log(`\nCombination ${i}:`);
-            console.log(`Species: ${event.species}`);
-            console.log(`Color: ${event.color}`);
-            console.log(`Stage: ${event.stage}`);
-            console.log(`URI: ${event.uri}`);
-         });*/
+    // Create batches
+    const speciesBatches = splitIntoBatches(species, BATCH_SIZE);
+    const colorsBatches = splitIntoBatches(colors, BATCH_SIZE);
+    const stagesBatches = splitIntoBatches(stages, BATCH_SIZE);
+    const ipfsHashesBatches = splitIntoBatches(ipfsHashes, BATCH_SIZE);
+
+    // Process each batch
+    console.log(`Processing metadata in batches of ${BATCH_SIZE}...`);
+    console.log(`Total batches: ${speciesBatches.length}`);
+
+    let totalMetadataSet = 0;
+
+    for (let i = 0; i < speciesBatches.length; i++) {
+        console.log(`\nProcessing batch ${i + 1} of ${speciesBatches.length}...`);
+        
+        // Call through the game contract for this batch
+        const tx = await game.setMetadataURIs(
+            speciesBatches[i], 
+            colorsBatches[i], 
+            stagesBatches[i], 
+            ipfsHashesBatches[i]
+        );
+        
+        console.log(`Batch ${i + 1} transaction hash: ${tx.hash}`);
+        const receipt = await tx.wait();
+        console.log(`Batch ${i + 1} processed successfully!`);
+        
+        // Count MetadataURISet events
+        const metadataEvents = receipt?.logs
+            .filter(log => {
+                try {
+                    return nft.interface.parseLog(log)?.name === 'MetadataURISet';
+                }
+                catch {
+                    return false;
+                }
+            });
+        
+        if (metadataEvents && metadataEvents.length > 0) {
+            console.log(`Metadata URIs set in this batch: ${metadataEvents.length}`);
+            totalMetadataSet += metadataEvents.length;
+        }
+        else {
+            console.log("No MetadataURISet events found in this batch!");
+        }
+        
+        if (i < speciesBatches.length - 1) {
+            console.log("Waiting for 2 seconds before processing next batch...");
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
-    else {
-        console.log("No MetadataURISet events found!");
-    }
+    
+    console.log(`\nTotal metadata URIs set: ${totalMetadataSet}`);
 
     // Setup initial bundles
     console.log("\nSetting up initial bundles...");

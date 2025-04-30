@@ -339,7 +339,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Mint NFT
         if (species == TotemNFT.Species.None) {
             // Random species
-            uint8[4] memory availableSpecies = [1, 2, 3, 11];
+            uint8[5] memory availableSpecies = [0, 1, 2, 3, 11];
             uint8 randomIndex = uint8(block.timestamp % availableSpecies.length);
             uint8 randomSpecies = availableSpecies[randomIndex];
             tokenId = totemNFT.mintWithRarity(
