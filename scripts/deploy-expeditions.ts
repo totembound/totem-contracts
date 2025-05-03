@@ -89,26 +89,26 @@ async function main() {
     // Configuration for 3-hour expeditions
     const threeHourExpeditions = [
         {
-            id: "harvesting-run",
-            name: "Harvesting Run",
-            domain: 0, // Land
-            duration: hoursToSeconds(3),
-            totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
-            happinessCost: 5,
-            baseExp: 15, // 5 XP per hour
-            affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
-            minStage: 1 // Stage 2
-        },
-        {
             id: "wind-scout-patrol",
             name: "Wind Scout Patrol",
-            domain: 1, // Air
+            domain: 0, // Air
             duration: hoursToSeconds(3),
             totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
             happinessCost: 5,
             baseExp: 15, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
+            runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
+            minStage: 1 // Stage 2
+        },
+        {
+            id: "harvesting-run",
+            name: "Harvesting Run",
+            domain: 1, // Earth
+            duration: hoursToSeconds(3),
+            totemCost: ethers.parseUnits("5", 18), // 5 TOTEM
+            happinessCost: 5,
+            baseExp: 15, // 5 XP per hour
+            affinityWeights: [8, 1, 1], // Strength primary
             runeDropChances: [100, 0, 0], // 100% Lesser, 0% Greater, 0% Ancient
             minStage: 1 // Stage 2
         },
@@ -129,26 +129,26 @@ async function main() {
     // Configuration for 6-hour expeditions
     const sixHourExpeditions = [
         {
-            id: "ruins-recovery",
-            name: "Ruins Recovery",
-            domain: 0, // Land
-            duration: hoursToSeconds(6),
-            totemCost: ethers.parseUnits("10", 18), // 10 TOTEM
-            happinessCost: 10,
-            baseExp: 30, // 5 XP per hour
-            affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
-            minStage: 1 // Stage 2
-        },
-        {
             id: "diplomatic-envoy",
             name: "Diplomatic Envoy",
-            domain: 1, // Air
+            domain: 0, // Air
             duration: hoursToSeconds(6),
             totemCost: ethers.parseUnits("10", 18), // 10 TOTEM
             happinessCost: 10,
             baseExp: 30, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
+            runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
+            minStage: 1 // Stage 2
+        },
+        {
+            id: "ruins-recovery",
+            name: "Ruins Recovery",
+            domain: 1, // Earth
+            duration: hoursToSeconds(6),
+            totemCost: ethers.parseUnits("10", 18), // 10 TOTEM
+            happinessCost: 10,
+            baseExp: 30, // 5 XP per hour
+            affinityWeights: [8, 1, 1], // Strength primary
             runeDropChances: [100, 25, 0], // 100% Lesser, 25% Greater, 0% Ancient
             minStage: 1 // Stage 2
         },
@@ -169,26 +169,26 @@ async function main() {
     // Configuration for 12-hour expeditions
     const twelveHourExpeditions = [
         {
-            id: "warden-patrol",
-            name: "Warden Patrol",
-            domain: 0, // Land
-            duration: hoursToSeconds(12),
-            totemCost: 120, // ethers.parseUnits("15", 18), // 15 TOTEM
-            happinessCost: 15,
-            baseExp: 60, // 5 XP per hour
-            affinityWeights: [8, 1, 1], // Strength primary
-            runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
-            minStage: 1 // Stage 2
-        },
-        {
             id: "festival-envoy",
             name: "Festival Envoy",
-            domain: 1, // Air
+            domain: 0, // Air
             duration: hoursToSeconds(12),
             totemCost: ethers.parseUnits("15", 18), // 15 TOTEM
             happinessCost: 15,
             baseExp: 60, // 5 XP per hour
             affinityWeights: [1, 8, 1], // Agility primary
+            runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
+            minStage: 1 // Stage 2
+        },
+        {
+            id: "warden-patrol",
+            name: "Warden Patrol",
+            domain: 1, // Earth
+            duration: hoursToSeconds(12),
+            totemCost: 120, // ethers.parseUnits("15", 18), // 15 TOTEM
+            happinessCost: 15,
+            baseExp: 60, // 5 XP per hour
+            affinityWeights: [8, 1, 1], // Strength primary
             runeDropChances: [100, 50, 10], // 100% Lesser, 50% Greater, 10% Ancient
             minStage: 1 // Stage 2
         },
@@ -209,26 +209,26 @@ async function main() {
     // Configuration for 24-hour expeditions
     const twentyFourHourExpeditions = [
         {
-            id: "deep-exploration",
-            name: "Deep Exploration",
-            domain: 0, // Land
-            duration: hoursToSeconds(24),
-            totemCost: ethers.parseUnits("20", 18), // 20 TOTEM
-            happinessCost: 20,
-            baseExp: 120, // 5 XP per hour
-            affinityWeights: [1, 8, 1], // Agility primary
-            runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
-            minStage: 2 // Stage 3
-        },
-        {
             id: "celestial-mapping",
             name: "Celestial Mapping",
-            domain: 1, // Air
+            domain: 0, // Air
             duration: hoursToSeconds(24),
             totemCost: ethers.parseUnits("20", 18), // 20 TOTEM
             happinessCost: 20,
             baseExp: 120, // 5 XP per hour
             affinityWeights: [1, 1, 8], // Wisdom primary
+            runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
+            minStage: 2 // Stage 3
+        },
+        {
+            id: "deep-exploration",
+            name: "Deep Exploration",
+            domain: 1, // Earth
+            duration: hoursToSeconds(24),
+            totemCost: ethers.parseUnits("20", 18), // 20 TOTEM
+            happinessCost: 20,
+            baseExp: 120, // 5 XP per hour
+            affinityWeights: [1, 8, 1], // Agility primary
             runeDropChances: [100, 75, 25], // 100% Lesser, 75% Greater, 25% Ancient
             minStage: 2 // Stage 3
         },
