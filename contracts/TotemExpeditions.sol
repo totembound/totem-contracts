@@ -639,7 +639,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             return Domain.Air;
         } 
         else {
-            return Domain.Land; // Bear, Wolf, Deer, Snake
+            return Domain.Earth; // Bear, Wolf, Deer, Snake
         }
     }
 

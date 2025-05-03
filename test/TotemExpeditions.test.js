@@ -25,8 +25,8 @@ describe("TotemExpeditions", function () {
 
     // Domain enum values from contract
     const Domain = {
-        Land: 0,
-        Air: 1,
+        Air: 0,
+        Earth: 1,
         Water: 2
     };
 
@@ -34,7 +34,7 @@ describe("TotemExpeditions", function () {
     const expeditionConfig = {
         idString: "forest_exploration",
         name: "Forest Exploration",
-        domain: Domain.Land,
+        domain: Domain.Earth,
         duration: 3600, // 1 hour duration for testing
         totemCost: ethers.parseUnits("100", 18),
         happinessCost: 10,
@@ -48,7 +48,7 @@ describe("TotemExpeditions", function () {
     const expeditionConfig2 = {
         idString: "forest_exploration2",
         name: "Forest Exploration2",
-        domain: Domain.Land,
+        domain: Domain.Earth,
         duration: 3600, // 1 hour duration for testing
         totemCost: ethers.parseUnits("100", 18),
         happinessCost: 10,
@@ -490,7 +490,7 @@ describe("TotemExpeditions", function () {
             await expect(expeditions.configureExpedition(
                 "invalid_expedition",
                 "Invalid Domain",
-                3, // Invalid domain (only 0-2 valid)
+                5, // Invalid domain (only 0-4 valid)
                 3600,
                 ethers.parseUnits("100", 18),
                 10,
@@ -785,8 +785,8 @@ describe("TotemExpeditions", function () {
             const newExpId = ethers.id("land_exp_for_air_team");
             await expeditions.configureExpedition(
               "land_exp_for_air_team",
-              "Land Expedition for Air Team",
-              Domain.Land, // Land domain with air team = low score
+              "Earth Expedition for Air Team",
+              Domain.Earth, // Earth domain with air team = low score
               expeditionConfig.duration,
               expeditionConfig.totemCost,
               expeditionConfig.happinessCost,

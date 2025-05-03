@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 interface ITotemExpeditions {
     // Enums
     enum Domain {
-        Land,
         Air, 
-        Water
+        Earth,
+        Water,
+        Fire,
+        Spirit
     }
     enum Affinity {
         Strength,
