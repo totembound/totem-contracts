@@ -68,6 +68,7 @@ export const species: number[] = [
     3, 3, 3, 3, 3,
     3, 3, 3, 3, 3,
     3, 3, 3, 3, 3,
+    4, 4, 4, 4, 4,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
@@ -156,6 +157,7 @@ export const colors:  number[] = [
     14, 14, 14, 14, 14,
     15, 15, 15, 15, 15,
     19, 19, 19, 19, 19,
+    20, 20, 20, 20, 20,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     2, 2, 2, 2, 2,
@@ -177,6 +179,7 @@ export const colors:  number[] = [
 
 // Stages 0 to 4
 export const stages:  number[] = [
+    0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
@@ -688,6 +691,12 @@ export const ipfsHashes: string[] = [
     "bafkreicckzdyjitdcaeibmhickzobtzp5spfiawmjc5ais2y2vsmd4vruq",
     "bafkreigett5babjvkaildxaljrl6gc3mpyoxrni3t6lsgqjmtxy5gwry2q",
     "bafkreifur5r7g45bkxjcbfkfyytudz4u37lm5ihtmx5shavonqqffwauv4",
+    // Beaver - FloralViolet
+    "bafkreiafzlnul5qs2x2dr4l7bt4jyngxfyapdhmnahje3ma2hv23wk4ryu",
+    "bafkreicdqzodoxga7v7bps7zqrwpmzddelkbcpgn4ipq3e7pz6qo46g7qm",
+    "bafkreiewl6ay3pp5nfue2wwcsy2baov4mad23z7i27ul2ysdwd5bbolngq",
+    "bafkreic2tykhfzdtlgshnhnsknfu4ng32zjue62lg6ikyfkk427dupslbq",
+    "bafkreiepvz2agwbuejak5gq6r5howwr25wu6bgk2nv3p4g47noar2czudi",
     // Common
     // Owl - Brown
     "bafkreih4jtnnvl2qeeesgwxhhn2re4wnuo6ly2zjgevbxfatncxwfcecm4",
