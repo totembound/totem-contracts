@@ -402,16 +402,19 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
         uint256 currentMidnight = _getUTCMidnight(block.timestamp);
         
-        // Check if streak continues (past midnight UTC)
-        bool maintainStreak = currentMidnight > lastClaimMidnight && 
-            block.timestamp <= currentMidnight + config.gracePeriod;
-    
-        // If past grace period but protected
-        if (!maintainStreak && tracking.protectionExpiry >= block.timestamp) {
-            maintainStreak = true;
-            // Consume protection if used
-            tracking.protectionExpiry = 0;
-            emit ProtectionUsed(rewardId, user, tracking.activeTier);
+        bool maintainStreak = false;
+
+        if (currentMidnight > lastClaimMidnight) {
+            // Check grace period for streak maintenance
+            uint256 nextExpectedMidnight = lastClaimMidnight + 86400;
+            uint256 gracePeriodEnd = nextExpectedMidnight + config.gracePeriod;
+            maintainStreak = block.timestamp <= gracePeriodEnd;
+            
+            // If past grace period, check protection
+            if (!maintainStreak && tracking.protectionExpiry >= block.timestamp) {
+                maintainStreak = true;
+                emit ProtectionUsed(rewardId, user, tracking.activeTier);
+            }
         }
 
         if (maintainStreak) {
@@ -502,8 +505,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             // Can claim after midnight UTC
             nextClaimTime = currentMidnight;
             gracePeriodEnd = currentMidnight + config.gracePeriod;
-            canClaim = (block.timestamp <= gracePeriodEnd) || 
-                    (tracking.protectionExpiry >= block.timestamp);
+            canClaim = true;
         } else {
             // Already claimed today
             nextClaimTime = currentMidnight + 1 days;
