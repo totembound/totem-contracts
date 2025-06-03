@@ -85,6 +85,7 @@ export const species: number[] = [
     4, 4, 4, 4, 4,
     4, 4, 4, 4, 4,
     4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
@@ -190,6 +191,7 @@ export const colors:  number[] = [
     14, 14, 14, 14, 14,
     15, 15, 15, 15, 15,
     20, 20, 20, 20, 20,
+    21, 21, 21, 21, 21,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     2, 2, 2, 2, 2,
@@ -211,6 +213,7 @@ export const colors:  number[] = [
 
 // Stages 0 to 4
 export const stages:  number[] = [
+    0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
@@ -841,6 +844,12 @@ export const ipfsHashes: string[] = [
     "bafkreiewl6ay3pp5nfue2wwcsy2baov4mad23z7i27ul2ysdwd5bbolngq",
     "bafkreie2zdkqtp57j2nkeqn4cskx3pgp2rwsj5hdnup5t27s6c2bgd2mle",
     "bafkreiepvz2agwbuejak5gq6r5howwr25wu6bgk2nv3p4g47noar2czudi",
+    // Deer - Limited - SunsetOrange
+    "bafkreifiwx7johjntiwa42np223fclbun4f47grkw7mo7xjfrnhf7pgzie",
+    "bafkreid5eftowqcd6s4ufbqkypqaphbgjekkxy7vhn5axyramnszmdbdey",
+    "bafkreig3pmwc4zjlcxydvz2ymvqod4mt2phu5sc45u7al6xamtysesyaqu",
+    "bafkreia23uhup5iugvbwtlxi6kg2jumu6m2j4cf7ibo7uj5j5tqlmdarjy",
+    "bafkreihuzdtfg5qcxucqqbtqkutcw6bdublypvphbsbe64rvwzbah6g2k4",
     // Common
     // Owl - Brown
     "bafkreih4jtnnvl2qeeesgwxhhn2re4wnuo6ly2zjgevbxfatncxwfcecm4",
