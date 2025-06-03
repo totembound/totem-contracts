@@ -223,20 +223,27 @@ describe("TotemRewards", function () {
             expect(balance).to.equal(initialBalance + expectedBaseAmount + expectedBonus);
         });
 
-        it("Should not allow claiming outside grace period", async function () {
+        it("Should allow claiming outside grace period but reset streak", async function () {
             // Initial claim at midnight
             const currentTimestamp = await time.latest();
             const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
             await safeIncreaseTo(nextMidnight);
             
             await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // Check initial streak
+            let userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(1n);
 
             // Move time past grace period
             await time.increase(dailyConfig.interval + dailyConfig.gracePeriod + 1);
 
-            // Should not allow claiming
-            await expect(rewards.connect(addr1).claim(dailyRewardId))
-                .to.be.revertedWithCustomError(rewards, "ClaimingCurrentlyNotAllowed");
+            // Should still allow claiming (claiming window is separate from grace period)
+            await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // But streak should be reset due to missing grace period
+            userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(1n); // Reset to 1, not 2
         });
     });
 
@@ -351,26 +358,78 @@ describe("TotemRewards", function () {
         });
 
         it("Should maintain streak when protected", async function () {
+             // Configure a longer protection tier just for this test
+            await rewards.configureProtectionTier(dailyRewardId, 0, {
+                cost: ethers.parseUnits("50", 18),
+                duration: 172800,                   // 2 days instead of 1
+                requiredStreak: 7,
+                enabled: true
+            });
+
             // Purchase protection
             await rewards.connect(addr1).purchaseProtection(dailyRewardId, 0);
             
-            // Check protection status
             const beforeInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
             const currentTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
             expect(beforeInfo.protectionExpiry).to.be.gt(currentTimestamp);
 
-            // Move time forward one day
-            await time.increase(86400);
+            // Now we can safely move past grace period
+            await time.increase(86400 + dailyConfig.gracePeriod + 3600);
 
-            // Check if claiming is allowed
             const isAllowed = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
             expect(isAllowed).to.be.true;
             
-            // Should still be able to claim and maintain streak
             await rewards.connect(addr1).claim(dailyRewardId);
             
             const userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
             expect(userInfo.currentStreak).to.equal(8n);
+        });
+
+        it("Should allow multiple late claims with 7-day protection", async function () {
+            // Build 14-day streak to qualify for tier 2 protection
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight);
+
+            for(let i = 0; i < 14; i++) {
+                await rewards.connect(addr1).claim(dailyRewardId);
+                await time.increase(86400); // Move to next day
+            }
+
+            // Setup tokens for protection
+            await token.transferAllocation(0, addr1.address, ethers.parseUnits("1000", 18));
+            await token.connect(addr1).approve(await rewards.getAddress(), ethers.parseUnits("1000", 18));
+
+            // Purchase 7-day protection (tier 2)
+            await rewards.connect(addr1).purchaseProtection(dailyRewardId, 1);
+            
+            let userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(14n);
+            const protectionExpiry = userInfo.protectionExpiry;
+
+            // Make 3 consecutive late claims (outside grace period)
+            for(let i = 0; i < 3; i++) {
+                // Move to next day, outside grace period
+                await time.increase(86400 + dailyConfig.gracePeriod + 3600);
+                
+                // Should still be able to claim with protection
+                expect(await rewards.isClaimingAllowed(dailyRewardId, addr1.address)).to.be.true;
+                
+                await rewards.connect(addr1).claim(dailyRewardId);
+                
+                userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+                expect(userInfo.currentStreak).to.equal(15n + BigInt(i)); // Streak continues
+                
+                // Protection should still be active (not consumed)
+                expect(userInfo.protectionExpiry).to.equal(protectionExpiry);
+            }
+            
+            // After 7 days, protection should expire naturally
+            const remainingProtectionTime = Number(protectionExpiry) - await time.latest();
+            await time.increase(remainingProtectionTime + 1);
+            
+            userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.protectionExpiry).to.be.lt(await time.latest()); // Expired
         });
 
         it("Should prevent protection purchase without required streak", async function () {

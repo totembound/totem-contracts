@@ -34,7 +34,7 @@ const config: HardhatUserConfig = {
       chainId: 31337, // Local Hardhat chain ID
       mining: {
         auto: true,
-        interval: 0
+        interval: 1000
       }
     },
     localhost: {
