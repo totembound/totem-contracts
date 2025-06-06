@@ -183,13 +183,13 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!reward.config.enabled) revert RewardCurrentlyDisabled();
         if (!_canClaim(rewardId, user)) revert ClaimingCurrentlyNotAllowed();
 
+        // Update tracking and get the streak value to use for reward calculation
+        uint256 streakForReward = _updateTracking(rewardId, user, tracking, reward.config);
+
         // Calculate reward amount with streak bonus
-        uint256 amount = _calculateReward(reward.config, tracking.currentStreak);
+        uint256 amount = _calculateReward(reward.config, streakForReward);
         if (totemToken.balanceOf(address(this)) < amount) 
             revert InsufficientTokenBalance();
-
-        // Update tracking
-        _updateTracking(rewardId, user, tracking, reward.config);
 
         // Transfer reward
         if (!totemToken.transfer(user, amount)) revert TransferFailed();
@@ -393,46 +393,107 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Internal helper functions
-     function _updateTracking(
+    function _updateTracking(
         bytes32 rewardId,
         address user,
         UserTracking storage tracking,
         RewardConfig memory config
-    ) internal {
+    ) internal returns (uint256 streakForReward) {
         uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
         uint256 currentMidnight = _getUTCMidnight(block.timestamp);
         
-        bool maintainStreak = false;
-
-        if (currentMidnight > lastClaimMidnight) {
-            // Check grace period for streak maintenance
-            uint256 nextExpectedMidnight = lastClaimMidnight + 86400;
-            uint256 gracePeriodEnd = nextExpectedMidnight + config.gracePeriod;
-            maintainStreak = block.timestamp <= gracePeriodEnd;
-            
-            // If past grace period, check protection
-            if (!maintainStreak && tracking.protectionExpiry >= block.timestamp) {
-                maintainStreak = true;
-                emit ProtectionUsed(rewardId, user, tracking.activeTier);
-            }
+        // Handle same-day claims
+        if (currentMidnight == lastClaimMidnight) {
+            streakForReward = tracking.currentStreak;
+            _incrementStreak(tracking);
         }
-
-        if (maintainStreak) {
-            tracking.currentStreak++;
-            if (tracking.currentStreak > tracking.bestStreak) {
-                tracking.bestStreak = tracking.currentStreak;
-            }
-        } else {
+        // Handle past claims (edge case)
+        else if (currentMidnight < lastClaimMidnight) {
+            streakForReward = 0;
             tracking.currentStreak = 1;
+        }
+        // Handle different day claims
+        else {
+            uint256 nextExpectedMidnight = lastClaimMidnight + 86400;
+            bool maintainStreak = _shouldMaintainStreak(
+                currentMidnight,
+                nextExpectedMidnight,
+                config.gracePeriod,
+                tracking.protectionExpiry
+            );
+            
+            if (maintainStreak) {
+                // Use protection if needed
+                if (_needsProtection(currentMidnight, nextExpectedMidnight, config.gracePeriod)) {
+                    emit ProtectionUsed(rewardId, user, tracking.activeTier);
+                }
+                streakForReward = tracking.currentStreak;
+                _incrementStreak(tracking);
+            } else {
+                // Reset streak
+                streakForReward = 0;
+                tracking.currentStreak = 1;
+            }
         }
 
         tracking.lastClaim = block.timestamp;
         tracking.totalClaims++;
+        
+        return streakForReward;
+    }
+
+    // Helper function to increment streak and update best streak
+    function _incrementStreak(UserTracking storage tracking) internal {
+        tracking.currentStreak++;
+        if (tracking.currentStreak > tracking.bestStreak) {
+            tracking.bestStreak = tracking.currentStreak;
+        }
     }
 
     // Override required functions
     // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    // Helper function to determine if streak should be maintained
+    function _shouldMaintainStreak(
+        uint256 currentMidnight,
+        uint256 nextExpectedMidnight,
+        uint256 gracePeriod,
+        uint256 protectionExpiry
+    ) internal view returns (bool) {
+        // Next day claim within grace period
+        if (currentMidnight == nextExpectedMidnight) {
+            uint256 gracePeriodEnd = nextExpectedMidnight + gracePeriod;
+            return block.timestamp <= gracePeriodEnd || protectionExpiry >= block.timestamp;
+        }
+        
+        // Multiple days skipped - only protection can save streak
+        if (currentMidnight > nextExpectedMidnight) {
+            return protectionExpiry >= block.timestamp;
+        }
+        
+        return false;
+    }
+
+    // Helper function to check if protection is being used
+    function _needsProtection(
+        uint256 currentMidnight,
+        uint256 nextExpectedMidnight,
+        uint256 gracePeriod
+    ) internal view returns (bool) {
+        // Multiple days skipped always needs protection
+        if (currentMidnight > nextExpectedMidnight) {
+            return true;
+        }
+        
+        // Next day past grace period needs protection
+        if (currentMidnight == nextExpectedMidnight) {
+            uint256 gracePeriodEnd = nextExpectedMidnight + gracePeriod;
+            return block.timestamp > gracePeriodEnd;
+        }
+        
+        return false;
+    }
 
     function _canClaim(
         bytes32 rewardId,

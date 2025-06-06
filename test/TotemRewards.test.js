@@ -356,6 +356,18 @@ describe("TotemRewards", function () {
             expect(userInfo.protectionExpiry).to.be.gt(0);
             expect(userInfo.activeTier).to.equal(0);
         });
+        
+        it("Should prevent protection purchase without required streak", async function () {
+            await expect(rewards.connect(addr2).purchaseProtection(dailyRewardId, 0))
+                .to.be.revertedWithCustomError(rewards, "InsufficientStreak");
+        });
+
+        it("Should prevent double protection purchase", async function () {
+            await rewards.connect(addr1).purchaseProtection(dailyRewardId, 0);
+            
+            await expect(rewards.connect(addr1).purchaseProtection(dailyRewardId, 0))
+                .to.be.revertedWithCustomError(rewards, "ProtectionAlreadyActive");
+        });
 
         it("Should maintain streak when protected", async function () {
              // Configure a longer protection tier just for this test
@@ -431,19 +443,109 @@ describe("TotemRewards", function () {
             userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
             expect(userInfo.protectionExpiry).to.be.lt(await time.latest()); // Expired
         });
-
-        it("Should prevent protection purchase without required streak", async function () {
-            await expect(rewards.connect(addr2).purchaseProtection(dailyRewardId, 0))
-                .to.be.revertedWithCustomError(rewards, "InsufficientStreak");
-        });
-
-        it("Should prevent double protection purchase", async function () {
-            await rewards.connect(addr1).purchaseProtection(dailyRewardId, 0);
-            
-            await expect(rewards.connect(addr1).purchaseProtection(dailyRewardId, 0))
-                .to.be.revertedWithCustomError(rewards, "ProtectionAlreadyActive");
-        });
     });
+
+    describe("Multiple Day Skip Scenarios", function () {
+        it("Should reset streak when skipping multiple days without protection", async function () {
+            // Day 1: Initial claim (clean start, no beforeEach interference)
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight);
+            
+            const initialBalance = await token.balanceOf(addr1.address);
+            await rewards.connect(addr1).claim(dailyRewardId);
+            
+            // Verify first claim
+            let userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(1n);
+            const balanceAfterDay1 = await token.balanceOf(addr1.address);
+            expect(balanceAfterDay1).to.equal(initialBalance + dailyConfig.baseAmount);
+
+            // Skip multiple days (Day 2 and Day 3 entirely, claim on Day 4)
+            // This simulates the real scenario: June 2 → June 4 (48+ hours later)
+            const multipleDaysLater = 48 * 3600; // 48 hours = 2 full days
+            await time.increase(multipleDaysLater);
+
+            // Day 4: Claim after skipping multiple days
+            const balanceBeforeDay4 = await token.balanceOf(addr1.address);
+            await rewards.connect(addr1).claim(dailyRewardId);
+            const balanceAfterDay4 = await token.balanceOf(addr1.address);
+
+            // Verify streak was reset to 1 (no protection)
+            userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(1n); // Should reset to 1
+            
+            // Verify reward amount reflects streak reset (base amount only, no bonus)
+            const day4Reward = balanceAfterDay4 - balanceBeforeDay4;
+            expect(day4Reward).to.equal(dailyConfig.baseAmount); // 10 TOTEM, no bonus
+
+            // Day 5: Claim next day to verify normal progression
+            await time.increase(86400); // Move to next day
+            
+            const balanceBeforeDay5 = await token.balanceOf(addr1.address);
+            await rewards.connect(addr1).claim(dailyRewardId);
+            const balanceAfterDay5 = await token.balanceOf(addr1.address);
+
+            // Verify streak progressed from 1 to 2
+            userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(2n);
+            
+            // Verify reward includes 5% bonus (streak 2)
+            const day5Reward = balanceAfterDay5 - balanceBeforeDay5;
+            const expectedDay5Reward = dailyConfig.baseAmount + (dailyConfig.baseAmount * BigInt(5) / BigInt(100));
+            expect(day5Reward).to.equal(expectedDay5Reward); // 10.5 TOTEM
+        });
+
+        it("Should maintain streak when skipping multiple days WITH protection", async function () {
+            // Build up a 14-day streak to qualify for 7-day protection (tier 1)
+            const currentTimestamp = await time.latest();
+            const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
+            await safeIncreaseTo(nextMidnight);
+
+            // Claim 14 days in a row to qualify for tier 1 protection
+            for(let i = 0; i < 14; i++) {
+                await rewards.connect(addr1).claim(dailyRewardId);
+                if (i < 13) await time.increase(86400); // Don't advance time after last claim
+            }
+
+            // Setup tokens and purchase protection
+            await token.transferAllocation(0, addr1.address, ethers.parseUnits("1000", 18));
+            await token.connect(addr1).approve(await rewards.getAddress(), ethers.parseUnits("1000", 18));
+            
+            // Purchase 7-day protection (tier 1) - this can protect for multiple days
+            await rewards.connect(addr1).purchaseProtection(dailyRewardId, 1);
+            
+            let userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(14n);
+            
+            // Verify protection is active
+            const protectionExpiry = userInfo.protectionExpiry;
+            const currentTime = await time.latest();
+            expect(protectionExpiry).to.be.gt(currentTime);
+
+            // Skip multiple days (2 days) while protected by 7-day protection
+            await time.increase(48 * 3600); // 48 hours = 2 full days
+
+            // Verify protection is still active before claiming
+            const timeBeforeClaim = await time.latest();
+            expect(protectionExpiry).to.be.gt(timeBeforeClaim);
+
+            // Claim with protection active
+            const balanceBefore = await token.balanceOf(addr1.address);
+            await rewards.connect(addr1).claim(dailyRewardId);
+            const balanceAfter = await token.balanceOf(addr1.address);
+
+            // Verify streak was maintained due to protection
+            userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
+            expect(userInfo.currentStreak).to.equal(15n); // Streak continues with protection
+            
+            // Verify reward includes streak bonus (calculated with streak 14, then incremented to 15)
+            const reward = balanceAfter - balanceBefore;
+            const expectedBonus = dailyConfig.baseAmount * BigInt(70) / BigInt(100); // 14 * 5% = 70%
+            const expectedReward = dailyConfig.baseAmount + expectedBonus;
+            expect(reward).to.equal(expectedReward); // 17.0 TOTEM
+        });
+    }); 
 
     describe("Admin Functions", function () {
         it("Should allow updating reward configuration", async function () {
