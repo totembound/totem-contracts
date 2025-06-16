@@ -5,6 +5,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
+import { TotemNFT } from "./TotemNFT.sol";
+import { TotemGame } from "./TotemGame.sol";
 import { TotemToken } from "./TotemToken.sol";
 
 error InvalidAddress();
@@ -32,6 +34,9 @@ error InvalidRequiredStreak();
 error NoActiveProtection();
 error InvalidMetadataKey();
 error InvalidMetadataValue();
+error OneTimeRewardAlreadyClaimed();
+error OneTimeRewardNotConfigured();
+error NotTokenOwner();
 
 contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Core structs for reward configuration
@@ -82,11 +87,24 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint8 activeTier;           // Active protection tier
     }
 
+    struct OneTimeRewardConfig {
+        string name;                // Display name
+        string description;         // Description  
+        uint256 tokenReward;        // TOTEM token amount
+        uint256 experienceReward;   // Experience for totem
+        bool requiresTotem;         // Whether experience reward needs totem
+        bool enabled;               // Whether reward is active
+    }
+
     // State variables
+    TotemGame public totemGame;
     TotemToken public totemToken;
+    TotemNFT public totemNFT;
     ITotemAchievements public achievements;
     address public trustedForwarder;
-    
+    mapping(bytes32 => OneTimeRewardConfig) public oneTimeRewards;
+    mapping(address => mapping(bytes32 => bool)) public oneTimeRewardClaimed;
+
     // Mappings for reward tracking
     mapping(bytes32 => RewardInfo) private _rewardInfo;
     mapping(bytes32 => mapping(address => UserTracking)) private _userTracking;
@@ -105,6 +123,8 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event MetadataSet(bytes32 indexed rewardId, string key, string value);
     event RewardEnabled(bytes32 indexed rewardId);
     event RewardDisabled(bytes32 indexed rewardId);
+    event OneTimeRewardConfigured(bytes32 indexed rewardId, string name, uint256 tokenReward, uint256 experienceReward);
+    event OneTimeRewardClaimed(bytes32 indexed rewardId, address indexed user, uint256 tokenReward, uint256 experienceReward, uint256 totemId);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -112,14 +132,18 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function initialize(
+        address _totemGame,
         address _totemToken,
+        address _totemNFT,
         address _trustedForwarder
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
 
         if (_trustedForwarder == address(0)) revert InvalidForwarderAddress();
+        totemGame = TotemGame(payable(_totemGame));
         totemToken = TotemToken(_totemToken);
+        totemNFT = TotemNFT(_totemNFT);
         trustedForwarder = _trustedForwarder;
     }
 
@@ -173,6 +197,26 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit ProtectionTierConfigured(rewardId, tier, config);
     }
 
+     function configureOneTimeReward(
+        bytes32 rewardId,
+        string memory name,
+        string memory description,
+        uint256 tokenReward,
+        uint256 experienceReward,
+        bool requiresTotem
+    ) external onlyOwner {
+        oneTimeRewards[rewardId] = OneTimeRewardConfig({
+            name: name,
+            description: description,
+            tokenReward: tokenReward,
+            experienceReward: experienceReward,
+            requiresTotem: requiresTotem,
+            enabled: true
+        });
+
+        emit OneTimeRewardConfigured(rewardId, name, tokenReward, experienceReward);
+    }
+
     // Claim functions
     function claim(bytes32 rewardId) external returns (uint256) {
         address user = _msgSender();
@@ -203,6 +247,40 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         emit RewardClaimed(rewardId, user, amount, tracking.currentStreak);
         return amount;
+    }
+
+    // Claim one-time reward
+    function claimOneTimeReward(bytes32 rewardId, uint256 totemId) external {
+        address user = _msgSender();
+        OneTimeRewardConfig memory reward = oneTimeRewards[rewardId];
+        
+        // Validation
+        if (bytes(reward.name).length == 0) revert OneTimeRewardNotConfigured();
+        if (!reward.enabled) revert RewardCurrentlyDisabled();
+        if (oneTimeRewardClaimed[user][rewardId]) revert OneTimeRewardAlreadyClaimed();
+        
+        // If experience reward and requires totem, validate ownership
+        if (reward.experienceReward > 0 && reward.requiresTotem) {
+            if (totemId == 0 || address(totemNFT) == address(0)) revert NotTokenOwner();
+            if (totemNFT.ownerOf(totemId) != user) revert NotTokenOwner();
+        }
+
+        // Mark as claimed
+        oneTimeRewardClaimed[user][rewardId] = true;
+
+        // Give token reward
+        if (reward.tokenReward > 0) {
+            if (totemToken.balanceOf(address(this)) < reward.tokenReward) 
+                revert InsufficientTokenBalance();
+            if (!totemToken.transfer(user, reward.tokenReward)) revert TransferFailed();
+        }
+
+        // Give experience to totem
+        if (reward.experienceReward > 0 && reward.requiresTotem && totemId != 0) {
+            totemGame.giveExperienceReward(user, totemId, reward.experienceReward);
+        }
+
+        emit OneTimeRewardClaimed(rewardId, user, reward.tokenReward, reward.experienceReward, totemId);
     }
 
     // Protection functions
@@ -259,6 +337,26 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function setAchievements(address _achievements) external onlyOwner {
         if (_achievements == address(0)) revert InvalidAddress();
         achievements = ITotemAchievements(_achievements);
+    }
+
+    function setTotemNFT(address _totemNFT) external onlyOwner {
+        if (_totemNFT == address(0)) revert InvalidAddress();
+        totemNFT = TotemNFT(_totemNFT);
+    }
+
+    function setTotemToken(address _totemToken) external onlyOwner {
+        if (_totemToken == address(0)) revert InvalidAddress();
+        totemToken = TotemToken(_totemToken);
+    }
+
+    function enableOneTimeReward(bytes32 rewardId) external onlyOwner {
+        if (bytes(oneTimeRewards[rewardId].name).length == 0) revert OneTimeRewardNotConfigured();
+        oneTimeRewards[rewardId].enabled = true;
+    }
+
+    function disableOneTimeReward(bytes32 rewardId) external onlyOwner {
+        if (bytes(oneTimeRewards[rewardId].name).length == 0) revert OneTimeRewardNotConfigured();
+        oneTimeRewards[rewardId].enabled = false;
     }
 
     function getMetadataAttribute(
@@ -390,6 +488,20 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (tier >= _rewardInfo[rewardId].config.protectionTierCount)
             revert InvalidProtectionTier();
         return _rewardInfo[rewardId].protectionTiers[tier];
+    }
+
+    function canClaimOneTimeReward(address user, bytes32 rewardId) external view returns (bool) {
+        OneTimeRewardConfig memory reward = oneTimeRewards[rewardId];
+        if (bytes(reward.name).length == 0 || !reward.enabled) return false;
+        return !oneTimeRewardClaimed[user][rewardId];
+    }
+
+    function getOneTimeReward(bytes32 rewardId) external view returns (OneTimeRewardConfig memory) {
+        return oneTimeRewards[rewardId];
+    }
+
+    function hasClaimedOneTimeReward(address user, bytes32 rewardId) external view returns (bool) {
+        return oneTimeRewardClaimed[user][rewardId];
     }
 
     // Internal helper functions
