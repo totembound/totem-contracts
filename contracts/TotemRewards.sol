@@ -124,7 +124,12 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event RewardEnabled(bytes32 indexed rewardId);
     event RewardDisabled(bytes32 indexed rewardId);
     event OneTimeRewardConfigured(bytes32 indexed rewardId, string name, uint256 tokenReward, uint256 experienceReward);
-    event OneTimeRewardClaimed(bytes32 indexed rewardId, address indexed user, uint256 tokenReward, uint256 experienceReward, uint256 totemId);
+    event OneTimeRewardClaimed(
+        bytes32 indexed rewardId, 
+        address indexed user, 
+        uint256 tokenReward, 
+        uint256 experienceReward, 
+        uint256 totemId);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
