@@ -174,7 +174,7 @@ describe("TotemExpeditions", function () {
         shop = await ethers.getContractAt("TotemShop", await shopProxy.getAddress());
         
         // Set shop as authorized in game
-        await game.setAuthorizedShop(await shop.getAddress());
+        await game.authorize(await shop.getAddress());
 
         // Deploy Expeditions
         TotemExpeditions = await ethers.getContractFactory("TotemExpeditions");
