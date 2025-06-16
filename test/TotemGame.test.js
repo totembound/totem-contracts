@@ -121,7 +121,7 @@ describe("TotemGame", function () {
         shop = await ethers.getContractAt("TotemShop", await shopProxy.getAddress());
 
         // Set shop as authorized in game
-        await game.setAuthorizedShop(await shop.getAddress());
+        await game.authorize(await shop.getAddress());
 
         // Transfer token allocation to game contract
         await token.transferAllocation(
@@ -153,7 +153,7 @@ describe("TotemGame", function () {
         });
 
         it("Should have game authorize the shop", async function () {
-            expect(await game.authorizedShop()).to.equal(await shop.getAddress());
+            expect(await game.authorizedContracts(await shop.getAddress())).to.be.true;
         });
 
         it("Should have correct time windows set", async function () {
