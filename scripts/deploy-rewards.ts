@@ -146,6 +146,83 @@ async function main() {
     await (await rewards.enableReward(dailyRewardId)).wait();
     await (await rewards.enableReward(weeklyRewardId)).wait();
 
+    // adding one time rewards
+    const tutorialSteps = [
+        {
+            id: ethers.id("tutorial_step_1_signup"),
+            name: "Claim Your Spiritkeeper Reward",
+            description: "As your journey begins, a small gift awaits. The Ancients honor the brave.",
+            tokenReward: ethers.parseEther("25"),   // 25 TOTEM
+            experienceReward: 0,                    // No experience (no totem yet)
+            requiresTotem: false
+        },
+        {
+            id: ethers.id("tutorial_step_2_mint"),
+            name: "Step into the Spirit World",
+            description: "The veil thins. The Ancients call. But first… a Totem must be chosen.",
+            tokenReward: ethers.parseEther("50"),   // 50 TOTEM
+            experienceReward: 100,                  // 100 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_3_care"),
+            name: "Care for Your Totem",
+            description: "Every Totem hungers, grows, and remembers. Begin the ritual of care.",
+            tokenReward: ethers.parseEther("20"),   // 20 TOTEM
+            experienceReward: 50,                   // 50 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_4_challenge"),
+            name: "Prove Yourself in a Challenge",
+            description: "Test your bond. Step into the Trials and be seen.",
+            tokenReward: ethers.parseEther("30"),   // 30 TOTEM
+            experienceReward: 75,                   // 75 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_5_evolve"),
+            name: "Evolve Your Totem",
+            description: "Only those who journey may grow. Let evolution mark your spirit.",
+            tokenReward: ethers.parseEther("25"),   // 25 TOTEM
+            experienceReward: 50,                   // 50 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_6_explore"),
+            name: "Explore the World",
+            description: "Beyond the veil lies discovery, Codex, Expeditions, and fellow Spiritkeepers await.",
+            tokenReward: ethers.parseEther("200"),  // 200 TOTEM - big finale!
+            experienceReward: 0,                    // 0 experience
+            requiresTotem: false
+        }
+    ];
+
+    console.log("\nConfiguring tutorial steps...");
+    for (let i = 0; i < tutorialSteps.length; i++) {
+        const step = tutorialSteps[i];
+        
+        try {
+            const tx = await rewards.configureOneTimeReward(
+                step.id,
+                step.name,
+                step.description,
+                step.tokenReward,
+                step.experienceReward,
+                step.requiresTotem
+            );
+            await tx.wait();
+            
+            console.log(`✅ Step ${i + 1}: ${step.name}`);
+            console.log(`   Tokens: ${ethers.formatEther(step.tokenReward)} TOTEM`);
+            console.log(`   Experience: ${step.experienceReward}`);
+            console.log(`   Requires Totem: ${step.requiresTotem}`);
+            console.log(`   TX: ${tx.hash}`);
+        } catch (error: any) {
+            console.log(`❌ Failed to configure step ${i + 1}:`, error.message);
+        }
+    }
+
     // Verify final configuration
     console.log("\nVerifying configurations...");
     const rewardIds = await rewards.getRewardIds();

@@ -186,7 +186,9 @@ async function main() {
     console.log("Rewards Implementation deployed to:", rewardsImplementationAddress);
     // Prepare Rewards initialization data
     const initRewardsData = TotemRewards.interface.encodeFunctionData("initialize", [
+        gameProxyAddress,
         tokenProxyAddress,
+        nftProxyAddress,
         forwarderAddress
     ]);
 
@@ -270,6 +272,8 @@ async function main() {
     await authRewardsTx.wait();
     const totemRewards = await ethers.getContractAt("TotemRewards", rewardsProxyAddress);
     await totemRewards.setAchievements(achievementsProxyAddress);
+    const authRewardsGameTx = await totemGame.authorize(rewardsProxyAddress);
+    await authRewardsGameTx.wait();
     console.log("TotemRewards authorized");
 
     // Authorize TotemChallenges
@@ -333,7 +337,7 @@ async function main() {
 
     // Add shop contract to game
     console.log("\nSetting shop contract in game...");
-    const setShopTx = await totemGame.setAuthorizedShop(shopProxyAddress);
+    const setShopTx = await totemGame.authorize(shopProxyAddress);
     await setShopTx.wait();
     console.log("Shop contract set in game");
 

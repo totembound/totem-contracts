@@ -4,7 +4,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const { safeIncreaseTo } = require("./timeHelpers");
 
 describe("TotemRewards", function () {
-    let TotemRewards, TotemToken, TotemProxy, TotemProxyAdmin;
+    let TotemRewards, TotemToken, TotemGame, TotemNFT;
     let rewards, token, proxy, proxyAdmin;
     let owner, addr1, addr2, trustedForwarder, oracle;
 
@@ -36,21 +36,33 @@ describe("TotemRewards", function () {
         protectionTierCount: 1                       // One protection tier
     };
 
+    // Initial game parameters
+    const gameParams = {
+        signupReward: ethers.parseUnits("2000", 18),    // 2000 TOTEM
+        mintPrice: ethers.parseUnits("500", 18)         // 500 TOTEM
+    };
+
+    // Time windows for feeding (in seconds from start of day UTC)
+    const timeWindows = {
+        window1Start: 0n,      // 00:00 UTC
+        window2Start: 28800n,  // 08:00 UTC
+        window3Start: 57600n   // 16:00 UTC
+    };
+    
     beforeEach(async function () {
         [owner, addr1, addr2, trustedForwarder] = await ethers.getSigners();
 
         // Deploy price oracle
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
         oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
-
-        // Deploy implementation
-        TotemToken = await ethers.getContractFactory("TotemToken");
-        const implementation = await TotemToken.deploy();
-
+        
         // Deploy proxy admin
         const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
         proxyAdmin = await TotemProxyAdmin.deploy(owner.address);
 
+        // Deploy implementation
+        TotemToken = await ethers.getContractFactory("TotemToken");
+        const tokenImpl = await TotemToken.deploy();
         // Prepare initialization data
         const initTokenData = TotemToken.interface.encodeFunctionData("initialize", [
             await oracle.getAddress(),
@@ -60,13 +72,43 @@ describe("TotemRewards", function () {
         // Deploy proxy
         const TotemProxy = await ethers.getContractFactory("TotemProxy");
         tokenProxy = await TotemProxy.deploy(
-            await implementation.getAddress(),
+            await tokenImpl.getAddress(),
             await proxyAdmin.getAddress(),
             initTokenData
         );
-
         // Get token interface at proxy address
         token = await ethers.getContractAt("TotemToken", await tokenProxy.getAddress());
+
+        // Deploy NFT contract
+        TotemNFT = await ethers.getContractFactory("TotemNFT");
+        const nftImpl = await TotemNFT.deploy();
+        const initNFTData = TotemNFT.interface.encodeFunctionData("initialize", [
+            trustedForwarder.address
+        ]);
+        const nftProxy = await TotemProxy.deploy(
+            await nftImpl.getAddress(),
+            await proxyAdmin.getAddress(),
+            initNFTData
+        );
+        nft = await ethers.getContractAt("TotemNFT", await nftProxy.getAddress());
+        await nft.setRandomOracle(await randomOracle.getAddress());
+
+        // Deploy Game contract
+        TotemGame = await ethers.getContractFactory("TotemGame");
+        const gameImpl = await TotemGame.deploy();
+        const initGameData = TotemGame.interface.encodeFunctionData("initialize", [
+            await token.getAddress(),
+            await nft.getAddress(),
+            trustedForwarder.address,
+            gameParams,
+            timeWindows
+        ]);
+        const gameProxy = await TotemProxy.deploy(
+            await gameImpl.getAddress(),
+            await proxyAdmin.getAddress(),
+            initGameData
+        );
+        game = await ethers.getContractAt("TotemGame", await gameProxy.getAddress());
 
         // Deploy Rewards Implementation
         TotemRewards = await ethers.getContractFactory("TotemRewards");
@@ -74,7 +116,9 @@ describe("TotemRewards", function () {
 
         // Initialize implementation data
         const initData = TotemRewards.interface.encodeFunctionData("initialize", [
+            await game.getAddress(),
             await token.getAddress(),
+            await nft.getAddress(),
             trustedForwarder.address
         ]);
 

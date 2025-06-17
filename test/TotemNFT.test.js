@@ -396,14 +396,16 @@ describe("TotemNFT", function () {
             expect(attrs.displayName).to.equal("MyTotem");
         });
 
+        it("Should set display name to empty string", async function () {
+            await nft.connect(addr1).setDisplayName(1, "");
+            const attrs = await nft.attributes(1);
+            expect(attrs.displayName).to.equal("");
+        });
+
         it("Should fail setting invalid display names", async function () {
             // Too long (>32 chars)
             const longName = "ThisNameIsMuchTooLongToBeValidForATotem";
             await expect(nft.connect(addr1).setDisplayName(1, longName))
-                .to.be.revertedWithCustomError(nft, "InvalidNameFormat");
-
-            // Empty name
-            await expect(nft.connect(addr1).setDisplayName(1, ""))
                 .to.be.revertedWithCustomError(nft, "InvalidNameFormat");
         });
     });
