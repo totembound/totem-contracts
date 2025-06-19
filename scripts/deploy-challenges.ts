@@ -27,6 +27,7 @@ async function main() {
     }
 
     enum ChallengeAttribute {
+        Balance,
         Strength,
         Agility,
         Wisdom
@@ -36,6 +37,7 @@ async function main() {
     const strengthAchievementId = ethers.id("challenge_progression");
     const agilityAchievementId = ethers.id("challenge_progression");
     const wisdomAchievementId = ethers.id("challenge_progression");
+    const balanceAchievementId = ethers.id("challenge_progression");
 
     // Configure Strength Trials
     console.log("\nConfiguring Strength Trials...");
@@ -205,11 +207,32 @@ async function main() {
         }
     ];
 
+    const balanceTrials = [
+        {
+            id: ethers.id("beginner-challenge-1"),
+            name: "Whack-A-Mole",
+            description: "Help smack down those pesky moles where they pop up. Use your fast reflexes to hit as many as you can and get a high score.",
+            type: ChallengeType.Trial,
+            attribute: ChallengeAttribute.Balance,
+            requirements: {
+                stage: 1,
+                strength: 1,
+                agility: 1,
+                wisdom: 1,
+                domain: ethers.ZeroHash
+            },
+            maxAttempts: 5,
+            maxScore: 1000,
+            achievementId: balanceAchievementId
+        }
+    ]
+
     // Combine all trials
     const allTrials = [
         ...strengthTrials,
         ...agilityTrials,
-        ...wisdomTrials
+        ...wisdomTrials,
+        ...balanceTrials
     ];
 
     // Configure challenges

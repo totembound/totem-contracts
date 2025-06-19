@@ -8,6 +8,7 @@ interface ITotemChallenges {
     }
 
     enum ChallengeAttribute {
+        Balance,
         Strength,
         Agility,
         Wisdom
