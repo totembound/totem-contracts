@@ -32,7 +32,6 @@ error ChallengeNotAvailable();
 error TotemIneligible();
 error InvalidScore();
 error DailyChallengesExceeded();
-error UnauthorizedShop();
 error UnauthorizedContract();
 error NoTotemsSelected();
 
@@ -92,11 +91,11 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ITotemChallenges public challenges;
     ITotemExpeditions public expeditions;
     address public trustedForwarder;
-    address public authorizedShop;
     GameParameters public gameParams;
     TimeWindows public timeWindows;
     mapping(address => bool) public hasSignedUp;
-    
+    mapping(address => bool) public authorizedContracts;
+
     // Action configuration and tracking
     mapping(ActionType => ActionConfig) public actionConfigs;
     mapping(uint256 => mapping(ActionType => ActionTracking)) public actionTracking;
@@ -119,7 +118,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event TotemSold(address indexed user, uint256 indexed tokenId, uint256 amount);
     event ChallengeCompleted(bytes32 indexed challengeId, uint256 indexed tokenId, uint256 score);
     event TrustedForwarderUpdated(address newForwarder);
-    event ShopAuthorized(address shop);
     event ExpeditionFeeProcessed(
         address indexed user, 
         bytes32 expeditionId, 
@@ -206,7 +204,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function processBuyTokens(address user) external payable {
-        if (msg.sender != authorizedShop) revert UnauthorizedShop();
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         if (!hasSignedUp[user]) revert NotSignedUp();
         
         // Calculate token amount based on sent POL
@@ -224,7 +222,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function processPurchaseTotem(address user, TotemNFT.Species species) external returns (uint256 tokenId) {
-        if (msg.sender != authorizedShop) revert UnauthorizedShop();
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         if (!hasSignedUp[user]) revert NotSignedUp();
 
         // Take payment for the totem
@@ -254,9 +252,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 prestigeLevel,
         uint256 sellValue
     ) {
-        // Only authorized shop can call this
-        if (msg.sender != authorizedShop) revert UnauthorizedShop();
-        
+        // Only allow calls from authorized contracts
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
+
         if (totemNFT.ownerOf(tokenId) != user) revert NotTokenOwner();
         
         // Get totem attributes
@@ -299,8 +297,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 tokenId,
         uint256 purchasePrice
     ) external {
-        // Only authorized shop can call this
-        if (msg.sender != authorizedShop) revert UnauthorizedShop();
+        // Only allow calls from authorized contracts
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         
         if (!hasSignedUp[user]) revert NotSignedUp();
         if (totemNFT.ownerOf(tokenId) != address(this)) revert TotemNotAvailable();
@@ -322,8 +320,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         TotemNFT.Rarity maxRarity,
         bool isLimitedRarity
     ) external payable returns (uint256 tokenId) {
-        // Only authorized shop can call this
-        if (msg.sender != authorizedShop) revert UnauthorizedShop();
+        // Only allow calls from authorized contracts
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         
         // Ensure user has signed up
         if (!hasSignedUp[user]) revert NotSignedUp();
@@ -441,8 +439,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 happinessCost,
         uint256[3] calldata totemIds
     ) external returns (bool success) {
-        // Only allow calls from the Expeditions contract
-        if (msg.sender != address(expeditions)) revert UnauthorizedContract();
+        // Only allow calls from authorized contracts
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         
         // Validate inputs
         if (totemIds.length == 0) revert NoTotemsSelected();
@@ -474,8 +472,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256[3] calldata runeRewards,
         uint256 score
     ) external returns (bool success) {
-        // Only allow calls from the Expeditions contract
-        if (msg.sender != address(expeditions)) revert UnauthorizedContract();
+        // Only allow calls from authorized contracts
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         
         // Validate inputs
         if (totemIds.length == 0) revert NoTotemsSelected();
@@ -511,6 +509,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         
         emit ExpeditionRewardsClaimed(user, expeditionId, experienceGain, totemIds, runeRewards, score);
         return true;
+    }
+
+    function giveExperienceReward(address user, uint256 totemId, uint256 experience) external {
+        if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
+        if (totemNFT.ownerOf(totemId) != user) revert NotTokenOwner();
+        
+        totemNFT.updateAttributes(totemId, 0, true, experience);
     }
 
     // Convenience functions for actions
@@ -578,9 +583,9 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         challenges.setChallengeMetadata(challengeId, key, value);
     }
 
-    function setAuthorizedShop(address _shop) external onlyOwner {
-        if (_shop == address(0)) revert InvalidAddress();
-        authorizedShop = _shop;
+    function authorize(address contractAddress) external onlyOwner {
+        if (contractAddress == address(0)) revert InvalidAddress();
+        authorizedContracts[contractAddress] = true;
     }
 
     function setAchievements(address _achievements) external onlyOwner {
@@ -591,11 +596,13 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function setChallenges(address _challenges) external onlyOwner {
         if (_challenges == address(0)) revert InvalidAddress();
         challenges = ITotemChallenges(_challenges);
+        authorizedContracts[_challenges] = true;
     }
 
     function setExpeditions(address _expeditions) external onlyOwner {
         if (_expeditions == address(0)) revert InvalidAddress();
         expeditions = ITotemExpeditions(_expeditions);
+        authorizedContracts[_expeditions] = true;
     }
 
     function updateActionConfig(

@@ -690,7 +690,7 @@ contract TotemNFT is
 
     function _validateDisplayName(string memory str) internal pure returns (bool) {
         bytes memory b = bytes(str);
-        if (b.length < 1 || b.length > 32) return false;
+        if (b.length > 32) return false;
         // Basic emoji range + alphanumeric + basic punctuation
         for(uint256 i; i<b.length; i++){
             bytes1 char = b[i];

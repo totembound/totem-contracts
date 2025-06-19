@@ -503,8 +503,8 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         uint256[3] memory totemIds,
         ExpeditionConfig storage config
     ) internal view returns (uint256) {
-        // Base score starts at 70 (out of 100)
-        uint256 score = 70;
+        // Base score starts at 50 (out of 100)
+        uint256 score = 50;
         
         // Check domain bonus for captain
         (
@@ -520,18 +520,25 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         ) = totemNFT.attributes(totemIds[0]);
 
         Domain captainDomain = _getTotemDomain(captainSpecies);
-        // Captain domain match bonus (+10)
+        // Captain domain match bonus (+15)
         if (captainDomain == config.domain) {
-            score += 10;
+            score += 15;
         }
         
-        // Captain Elder stage bonus (+5)
+        // Captain Elder stage bonus (+10)
         if (captainStage >= 4) {
-            score += 5;
+            score += 10;
         }
 
-        // Check affinity matches for all team members
+        // Check affinity matches and domain matches for all team members
         uint256[3] memory affinityMatches;
+        uint256 domainMatches = 0;
+        
+        // Count captain domain match
+        if (captainDomain == config.domain) {
+            domainMatches++;
+        }
+        
         for (uint256 i = 1; i < 3; i++) {
             (
                 TotemNFT.Species species,
@@ -545,7 +552,21 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
                 
             ) = totemNFT.attributes(totemIds[i]);
 
+            // Count affinity matches
             affinityMatches[uint8(_getTotemAffinity(species))]++;
+            
+            // Count domain matches for team members
+            Domain memberDomain = _getTotemDomain(species);
+            if (memberDomain == config.domain) {
+                domainMatches++;
+            }
+        }
+        
+        // Domain synergy bonus - reward teams with matching domains
+        if (domainMatches == 3) {
+            score += 15; // All same domain bonus
+        } else if (domainMatches == 2) {
+            score += 8; // Partial domain bonus
         }
         
         // Find which affinity weight is highest (primary)
@@ -557,12 +578,12 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             primaryAffinityIndex = 2;
         }
         
-        // Bonus for having at least one totem with the primary affinity (+5)
+        // Bonus for having totems with the primary affinity
         if (affinityMatches[primaryAffinityIndex] > 0) {
-            score += 5;
+            score += 5 + (affinityMatches[primaryAffinityIndex] * 3); // Scale with count
         }
         
-        // Bonus for team composition
+        // Team composition bonuses
         bool hasSharedAffinity = false;
         bool hasAllThreeAffinities = (affinityMatches[0] > 0 && affinityMatches[1] > 0 && affinityMatches[2] > 0);
         
@@ -575,8 +596,8 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Synergy bonuses
         if (hasSharedAffinity) {
-            // Bonus for having at least 2 totems with same affinity (+5)
-            score += 5;
+            // Bonus for having at least 2 totems with same affinity (+8)
+            score += 8;
         }
         
         if (hasAllThreeAffinities) {
@@ -584,22 +605,20 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
             score += 5;
         }
         
-        // Add some randomness to results (±5 points)
+        // Add some randomness, ±3 points
         uint256 randomness = uint256(keccak256(abi.encodePacked(
             block.timestamp, 
             totemIds[0], 
             totemIds[1], 
             totemIds[2]
-        ))) % 11; // 0-10
+        ))) % 7; // 0-6
         
-        // Adjust score with randomness (±5)
-        score = score + randomness - 5;
+        // Adjust score with randomness (±3)
+        score = score + randomness - 3;
         
         // Ensure score is capped 0-100
         if (score > 100) {
             score = 100;
-        } else if (score < 0) {
-            score = 0;
         }
         
         return score;
