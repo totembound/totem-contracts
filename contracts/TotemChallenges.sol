@@ -166,7 +166,8 @@ contract TotemChallenges is
         if (address(achievements) != address(0) && 
             config.achievementId != bytes32(0)) {
 
-            if (challengeId == _TUTORIAL_ACHIEVEMENT_ID) {
+            bytes32 tutorialChallengeId = keccak256("beginner-challenge-1");
+            if (challengeId == tutorialChallengeId) {
                 achievements.unlockAchievement(_TUTORIAL_ACHIEVEMENT_ID, user);
             }
 
