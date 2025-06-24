@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { TotemHelpers } from "./helpers/TotemHelpers.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
 import { ITotemChallenges } from "./interfaces/ITotemChallenges.sol";
 import { ITotemExpeditions } from "./interfaces/ITotemExpeditions.sol";
@@ -34,8 +35,11 @@ error InvalidScore();
 error DailyChallengesExceeded();
 error UnauthorizedContract();
 error NoTotemsSelected();
+error NoAvailableSpecies();
 
 contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    using TotemHelpers for uint256;
+
     // Core game mechanics structs
     enum ActionType {
         Feed,
@@ -78,12 +82,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 window3Start;    // UTC 16:00
     }
 
-    struct GameConfiguration {
-        GameParameters params;
-        TimeWindows windows;
-        mapping(ActionType => ActionConfig) actionConfigs;
-    }
-
     // State variables
     TotemToken public totemToken;
     TotemNFT public totemNFT;
@@ -101,6 +99,8 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(uint256 => mapping(ActionType => ActionTracking)) public actionTracking;
     // Rune tracking
     mapping(address => mapping(RuneType => uint256)) public runeBalances;
+    // Available species for random minting
+    uint8[] public availableSpecies;
 
     // Constants
     uint256 private constant _SECONDS_PER_DAY = 86400;
@@ -132,6 +132,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256[3] runeRewards, 
         uint256 score);
     event RunesAwarded(address indexed user, uint8 runeType, uint256 amount);
+    event AvailableSpeciesUpdated(uint8[] newSpecies);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -271,7 +272,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         ) = totemNFT.attributes(tokenId);
 
         // Calculate value based on stage and rarity
-        sellValue = _calculateSellPrice(stage, rarity);
+        sellValue = TotemHelpers.calculateSellPrice(stage, rarity);
         
         // Transfer NFT to game contract
         totemNFT.gameTransferFrom(user, address(this), tokenId);
@@ -337,7 +338,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Mint NFT
         if (species == TotemNFT.Species.None) {
             // Random species
-            uint8[6] memory availableSpecies = [0, 1, 2, 3, 4, 11];
+            if (availableSpecies.length == 0) revert NoAvailableSpecies();
             uint8 randomIndex = uint8(block.timestamp % availableSpecies.length);
             uint8 randomSpecies = availableSpecies[randomIndex];
             tokenId = totemNFT.mintWithRarity(
@@ -643,6 +644,16 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit TimeWindowsUpdated(_windows);
     }
 
+    function updateAvailableSpecies(uint8[] calldata newSpecies) external onlyOwner {
+        // Clear the current array and set new values
+        delete availableSpecies;
+        for (uint256 i = 0; i < newSpecies.length; i++) {
+            availableSpecies.push(newSpecies[i]);
+        }
+        
+        emit AvailableSpeciesUpdated(newSpecies);
+    }
+
     // View functions
     function getUserRuneBalances(address user) external view returns (uint256[3] memory) {
         uint256[3] memory balances;
@@ -902,15 +913,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    function _calculatePrestigeBonus(uint256 tokenId, uint256 baseReward) internal view returns (uint256) {
-        // Get prestige info from NFT
-        (uint256 prestigeLevel,) = totemNFT.getPrestigeInfo(tokenId);
-        
-        // 5% bonus per prestige level, capped at 100% (20 levels)
-        uint256 bonusPercentage = _min(prestigeLevel * 5, 100);
-        return baseReward + (baseReward * bonusPercentage / 100);
-    }
-
     // Helper functions
     // solhint-disable-next-line
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -938,33 +940,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         else {
             return msg.data;
         }
-    }
-
-    function _calculateSellPrice(uint256 stage, TotemNFT.Rarity rarity) internal pure returns (uint256) {
-        // Base calculations in TOTEM (with 18 decimals)
-        uint256 baseValue = 200 * 10**18;  // 200 TOTEM minimum
-        uint256 maxBonus = 200 * 10**18;   // 200 TOTEM maximum bonus
-        
-        // Calculate stage bonus (60% weight)
-        // stage is 0-4, so divide by 4 to get percentage (0-100%)
-        // multiply by 60% (60/100) for weight
-        uint256 stageBonus = (stage * maxBonus * 60) / (4 * 100);
-        // Calculate rarity bonus (40% weight)
-        // rarity is 0-4, so divide by 4 to get percentage (0-100%)
-        // multiply by 40% (40/100) for weight
-        uint256 rarityBonus = (uint256(rarity) * maxBonus * 40) / (4 * 100);
-        // Calculate final sell value
-        uint256 sellValue = baseValue + stageBonus + rarityBonus;
-        
-        return sellValue;
-    }
-
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a > b ? a : b;
     }
 
     receive() external payable {}
