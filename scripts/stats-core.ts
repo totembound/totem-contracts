@@ -222,7 +222,6 @@ async function main() {
 
     console.log("\n=== Shop Configuration ===");
     console.log(`Shop Address: ${deployment.shopProxy}`);
-    console.log(`Game's Authorized Shop: ${await game.authorizedShop()}`);
     console.log(`Shop's Game Address: ${await shop.game()}`);
     console.log(`Shop Trusted Forwarder: ${await shop.trustedForwarder()}`);
     
