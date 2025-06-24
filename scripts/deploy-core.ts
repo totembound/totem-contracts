@@ -346,6 +346,13 @@ async function main() {
     await (await totemGame.setChallenges(challengesProxyAddress)).wait();
     console.log("Challenges contract set in game");
         
+    // Set initial available species (can be called again later to add new totems)
+    console.log("\nSetting initial available species...");
+    const initialSpecies = [0, 1, 2, 3, 4, 11]; // Goose, Otter, Wolf, Falcon, Beaver, Owl
+    const setSpeciesTx = await totemGame.updateAvailableSpecies(initialSpecies);
+    await setSpeciesTx.wait();
+    console.log("Initial available species set:", initialSpecies);
+
     // Set up Forwarder, transfer POL
     console.log("\nSetting proxy addresses in forwarder...");
     const setForwarderTx = await forwarder.batchSetContractStatus([
