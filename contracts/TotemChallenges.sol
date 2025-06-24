@@ -51,6 +51,7 @@ contract TotemChallenges is
 
     // Constants
     bytes32 private constant _TUTORIAL_ACHIEVEMENT_ID = keccak256("challenge_initiate");
+    bytes32 private constant _TUTORIAL_CHALLENGE_ID = keccak256("beginner-challenge-1");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -166,8 +167,7 @@ contract TotemChallenges is
         if (address(achievements) != address(0) && 
             config.achievementId != bytes32(0)) {
 
-            bytes32 tutorialChallengeId = keccak256("beginner-challenge-1");
-            if (challengeId == tutorialChallengeId) {
+            if (challengeId == _TUTORIAL_CHALLENGE_ID) {
                 achievements.unlockAchievement(_TUTORIAL_ACHIEVEMENT_ID, user);
             }
 

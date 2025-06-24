@@ -210,8 +210,8 @@ async function main() {
     const balanceTrials = [
         {
             id: ethers.id("beginner-challenge-1"),
-            name: "Whack-A-Mole",
-            description: "Help smack down those pesky moles where they pop up. Use your fast reflexes to hit as many as you can and get a high score.",
+            name: "Garden Pest Control",
+            description: "These challenges mark key moments in your totem\'s journey, requiring instinct and spirit to guide the way. Help smack down those pesky moles where they pop up.",
             type: ChallengeType.Trial,
             attribute: ChallengeAttribute.Balance,
             requirements: {
