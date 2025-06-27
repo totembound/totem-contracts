@@ -16,7 +16,6 @@ error InvalidStreakBonus();
 error InvalidMaxStreakBonus();
 error InvalidForwarderAddress();
 error InvalidMinStreak();
-error InvalidGracePeriod();
 error InvalidRewardId();
 error RewardNotConfigured();
 error RewardCurrentlyDisabled();
@@ -46,7 +45,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 streakBonus;       // Bonus % per consecutive claim
         uint256 maxStreakBonus;    // Maximum bonus %
         uint256 minStreak;         // Minimum streak required
-        uint256 gracePeriod;       // Extra time allowed after interval
         bool allowProtection;      // Whether protection can be purchased
         bool enabled;              // Whether reward is active
         uint8 protectionTierCount; // Number of protection tiers
@@ -72,7 +70,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 currentStreak;      // Current streak count
         uint256 bestStreak;         // Best streak achieved
         uint256 nextClaimTime;      // Timestamp when next claim is available
-        uint256 gracePeriodEnd;     // When grace period ends
         bool canClaim;              // If user can claim now
         bool isProtected;           // If streak is currently protected
         uint256 protectionExpiry;   // When protection expires (if active)
@@ -164,7 +161,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (config.interval == 0) revert InvalidInterval();
         if (config.streakBonus > 100) revert InvalidStreakBonus();
         if (config.maxStreakBonus > 1000) revert InvalidMaxStreakBonus();
-        if (config.gracePeriod >= config.interval) revert InvalidGracePeriod();
 
         RewardInfo storage reward = _rewardInfo[rewardId];
         reward.name = name;
@@ -233,7 +229,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!_canClaim(rewardId, user)) revert ClaimingCurrentlyNotAllowed();
 
         // Update tracking and get the streak value to use for reward calculation
-        uint256 streakForReward = _updateTracking(rewardId, user, tracking, reward.config);
+        uint256 streakForReward = _updateTracking(rewardId, user, tracking);
 
         // Calculate reward amount with streak bonus
         uint256 amount = _calculateReward(reward.config, streakForReward);
@@ -409,9 +405,8 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         
         (
             uint256 nextClaimTime,
-            uint256 gracePeriodEnd,
             bool canClaim
-        ) = _getNextClaimWindow(tracking, reward.config);
+        ) = _getNextClaimWindow(tracking);
         
         bool isProtected = tracking.protectionExpiry >= block.timestamp;
         
@@ -419,7 +414,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             currentStreak: tracking.currentStreak,
             bestStreak: tracking.bestStreak,
             nextClaimTime: nextClaimTime,
-            gracePeriodEnd: gracePeriodEnd,
             canClaim: canClaim,
             isProtected: isProtected,
             protectionExpiry: tracking.protectionExpiry
@@ -513,8 +507,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function _updateTracking(
         bytes32 rewardId,
         address user,
-        UserTracking storage tracking,
-        RewardConfig memory config
+        UserTracking storage tracking
     ) internal returns (uint256 streakForReward) {
         uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
         uint256 currentMidnight = _getUTCMidnight(block.timestamp);
@@ -535,13 +528,12 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             bool maintainStreak = _shouldMaintainStreak(
                 currentMidnight,
                 nextExpectedMidnight,
-                config.gracePeriod,
                 tracking.protectionExpiry
             );
             
             if (maintainStreak) {
-                // Use protection if needed
-                if (_needsProtection(currentMidnight, nextExpectedMidnight, config.gracePeriod)) {
+                // Use protection if needed (multiple days skipped)
+                if (currentMidnight > nextExpectedMidnight && tracking.protectionExpiry >= block.timestamp) {
                     emit ProtectionUsed(rewardId, user, tracking.activeTier);
                 }
                 streakForReward = tracking.currentStreak;
@@ -575,13 +567,11 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function _shouldMaintainStreak(
         uint256 currentMidnight,
         uint256 nextExpectedMidnight,
-        uint256 gracePeriod,
         uint256 protectionExpiry
     ) internal view returns (bool) {
-        // Next day claim within grace period
+        // Next day claim - always maintain streak if claiming on correct day
         if (currentMidnight == nextExpectedMidnight) {
-            uint256 gracePeriodEnd = nextExpectedMidnight + gracePeriod;
-            return block.timestamp <= gracePeriodEnd || protectionExpiry >= block.timestamp;
+            return true;
         }
         
         // Multiple days skipped - only protection can save streak
@@ -592,25 +582,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return false;
     }
 
-    // Helper function to check if protection is being used
-    function _needsProtection(
-        uint256 currentMidnight,
-        uint256 nextExpectedMidnight,
-        uint256 gracePeriod
-    ) internal view returns (bool) {
-        // Multiple days skipped always needs protection
-        if (currentMidnight > nextExpectedMidnight) {
-            return true;
-        }
-        
-        // Next day past grace period needs protection
-        if (currentMidnight == nextExpectedMidnight) {
-            uint256 gracePeriodEnd = nextExpectedMidnight + gracePeriod;
-            return block.timestamp > gracePeriodEnd;
-        }
-        
-        return false;
-    }
 
     function _canClaim(
         bytes32 rewardId,
@@ -629,7 +600,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             return false;
         }
 
-        (, , bool canClaim) = _getNextClaimWindow(tracking, reward.config);
+        (, bool canClaim) = _getNextClaimWindow(tracking);
 
         return canClaim;
     }
@@ -659,11 +630,9 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function _getNextClaimWindow(
-        UserTracking storage tracking,
-        RewardConfig memory config
+        UserTracking storage tracking
     ) internal view returns (
         uint256 nextClaimTime,
-        uint256 gracePeriodEnd,
         bool canClaim
     ) {
         uint256 lastClaimMidnight = _getUTCMidnight(tracking.lastClaim);
@@ -673,7 +642,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (tracking.lastClaim == 0) {
             return (
                 block.timestamp,  // Can claim immediately
-                block.timestamp + config.gracePeriod,
                 true
             );
         }
@@ -682,16 +650,14 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (currentMidnight > lastClaimMidnight) {
             // Can claim after midnight UTC
             nextClaimTime = currentMidnight;
-            gracePeriodEnd = currentMidnight + config.gracePeriod;
             canClaim = true;
         } else {
             // Already claimed today
             nextClaimTime = currentMidnight + 1 days;
-            gracePeriodEnd = nextClaimTime + config.gracePeriod;
             canClaim = false;
         }
 
-        return (nextClaimTime, gracePeriodEnd, canClaim);
+        return (nextClaimTime, canClaim);
     }
 
     function _msgData() internal view override returns (bytes calldata) {
