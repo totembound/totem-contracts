@@ -400,7 +400,6 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) external view returns (StreakStatus memory) {
         if (!_rewardExists(rewardId)) revert RewardNotConfigured();
         
-        RewardInfo storage reward = _rewardInfo[rewardId];
         UserTracking storage tracking = _userTracking[rewardId][user];
         
         (
