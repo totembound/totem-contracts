@@ -6,7 +6,7 @@ const { safeIncreaseTo } = require("./timeHelpers");
 describe("TotemRewards", function () {
     let TotemRewards, TotemToken, TotemGame, TotemNFT;
     let rewards, token, proxy, proxyAdmin;
-    let owner, addr1, addr2, trustedForwarder, oracle;
+    let owner, addr1, addr2, trustedForwarder, oracle, randomOracle;
 
     // Test reward configurations
     const dailyRewardId = ethers.id("daily_login");
@@ -18,7 +18,6 @@ describe("TotemRewards", function () {
         streakBonus: 5,                             // 5% per day
         maxStreakBonus: 100,                        // Max 100% bonus
         minStreak: 0,                               // No minimum
-        gracePeriod: 7200,                          // 2-hour grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 2                      // Two protection tiers
@@ -30,7 +29,6 @@ describe("TotemRewards", function () {
         streakBonus: 10,                             // 10% per week
         maxStreakBonus: 100,                         // Max 100% bonus
         minStreak: 1,                                // Require 1 week streak
-        gracePeriod: 86400,                          // 1-day grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 1                       // One protection tier
@@ -55,6 +53,10 @@ describe("TotemRewards", function () {
         // Deploy price oracle
         const TotemAdminPriceOracle = await ethers.getContractFactory("TotemAdminPriceOracle");
         oracle = await TotemAdminPriceOracle.deploy(ethers.parseUnits("0.01", "ether"));
+
+        // Deploy random oracle
+        const MockRandomOracle = await ethers.getContractFactory("MockRandomOracle");
+        randomOracle = await MockRandomOracle.deploy();
         
         // Deploy proxy admin
         const TotemProxyAdmin = await ethers.getContractFactory("TotemProxyAdmin");
@@ -217,8 +219,8 @@ describe("TotemRewards", function () {
             await contract.connect(user).claim(dailyRewardId);
             const initialBalance = await token.balanceOf(user.address);
 
-            // Move time forward past midnight but within grace period
-            await time.increase(config.interval + config.gracePeriod / 2);
+            // Move time forward past midnight
+            await time.increase(config.interval);
 
             return initialBalance;
         }
@@ -267,7 +269,7 @@ describe("TotemRewards", function () {
             expect(balance).to.equal(initialBalance + expectedBaseAmount + expectedBonus);
         });
 
-        it("Should allow claiming outside grace period but reset streak", async function () {
+        it("Should maintain streak when claiming anytime during the day", async function () {
             // Initial claim at midnight
             const currentTimestamp = await time.latest();
             const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
@@ -279,15 +281,15 @@ describe("TotemRewards", function () {
             let userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
             expect(userInfo.currentStreak).to.equal(1n);
 
-            // Move time past grace period
-            await time.increase(dailyConfig.interval + dailyConfig.gracePeriod + 1);
+            // Move to next day but stay within the same UTC day (12 hours later)
+            await time.increase(dailyConfig.interval + 12 * 3600);
 
-            // Should still allow claiming (claiming window is separate from grace period)
+            // Should allow claiming and maintain streak
             await rewards.connect(addr1).claim(dailyRewardId);
             
-            // But streak should be reset due to missing grace period
+            // Streak should be maintained since claiming on the correct day
             userInfo = await rewards.getUserInfo(dailyRewardId, addr1.address);
-            expect(userInfo.currentStreak).to.equal(1n); // Reset to 1, not 2
+            expect(userInfo.currentStreak).to.equal(2n); // Maintained streak
         });
     });
 
@@ -307,8 +309,7 @@ describe("TotemRewards", function () {
             // Check status before midnight
             const statusBefore = await rewards.getStreakStatus(dailyRewardId, addr1.address);
             const canClaimBefore = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
-            // Replace direct boolean check with explicit struct property access
-            expect(statusBefore[4]).to.be.false;  // canClaim is the 5th field in StreakStatus
+            expect(statusBefore[3]).to.be.false;  // canClaim is the 4th field in StreakStatus
             expect(canClaimBefore).to.be.false;
         
             // Move time to just after midnight
@@ -317,29 +318,26 @@ describe("TotemRewards", function () {
             // Check status after midnight
             const statusAfter = await rewards.getStreakStatus(dailyRewardId, addr1.address);
             const canClaimAfter = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
-            expect(statusAfter[4]).to.be.true;  // canClaim is the 5th field
+            expect(statusAfter[3]).to.be.true;  // canClaim is the 4th field
             expect(canClaimAfter).to.be.true;
             
             // Verify nextClaimTime is set to midnight
             expect(statusAfter[2]).to.equal(nextMidnight);  // nextClaimTime is 3rd field
-            
-            // Verify grace period is set correctly from midnight
-            expect(statusAfter[3]).to.equal(nextMidnight + dailyConfig.gracePeriod);  // gracePeriodEnd is 4th field
         });
     
-        it("Should maintain claim status through grace period after midnight", async function () {
+        it("Should maintain claim status anytime during the day after midnight", async function () {
             // First claim
             await rewards.connect(addr1).claim(dailyRewardId);
             
-            // Move to next midnight plus half grace period
+            // Move to next midnight
             const currentTimestamp = await time.latest();
             const nextMidnight = Math.floor(currentTimestamp / 86400) * 86400 + 86400;
-            await safeIncreaseTo(nextMidnight + (dailyConfig.gracePeriod / 2));
+            await safeIncreaseTo(nextMidnight);
             
-            // Should be able to claim during grace period
+            // Should be able to claim anytime during the day
             const status = await rewards.getStreakStatus(dailyRewardId, addr1.address);
             const canClaim = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
-            expect(status[4]).to.be.true;  // canClaim is 5th field
+            expect(status[3]).to.be.true;  // canClaim is 4th field
             expect(canClaim).to.be.true;
         });
         
@@ -354,8 +352,6 @@ describe("TotemRewards", function () {
             const testTimes = [
                 nextMidnight - 3600,    // 1 hour before midnight
                 nextMidnight + 60,      // Just after midnight
-                nextMidnight + (dailyConfig.gracePeriod / 2),  // Middle of grace period
-                nextMidnight + dailyConfig.gracePeriod + 60    // Just after grace period
             ];
         
             for (const testTime of testTimes) {
@@ -365,7 +361,7 @@ describe("TotemRewards", function () {
                 const canClaim = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
                 
                 // Status should be consistent between both methods
-                expect(status[4]).to.equal(canClaim);  // canClaim is 5th field
+                expect(status[3]).to.equal(canClaim);  // canClaim is 4th field
             }
         });
     });
@@ -429,8 +425,8 @@ describe("TotemRewards", function () {
             const currentTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
             expect(beforeInfo.protectionExpiry).to.be.gt(currentTimestamp);
 
-            // Now we can safely move past grace period
-            await time.increase(86400 + dailyConfig.gracePeriod + 3600);
+            // Now we can safely move past the day
+            await time.increase(86400);
 
             const isAllowed = await rewards.isClaimingAllowed(dailyRewardId, addr1.address);
             expect(isAllowed).to.be.true;
@@ -465,8 +461,8 @@ describe("TotemRewards", function () {
 
             // Make 3 consecutive late claims (outside grace period)
             for(let i = 0; i < 3; i++) {
-                // Move to next day, outside grace period
-                await time.increase(86400 + dailyConfig.gracePeriod + 3600);
+                // Move to next day
+                await time.increase(86400);
                 
                 // Should still be able to claim with protection
                 expect(await rewards.isClaimingAllowed(dailyRewardId, addr1.address)).to.be.true;

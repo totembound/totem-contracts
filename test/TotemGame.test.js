@@ -98,6 +98,51 @@ describe("TotemGame", function () {
         // Get game contract interface at proxy address
         game = await ethers.getContractAt("TotemGame", await proxy.getAddress());
 
+        // Feed action config
+        const feedConfig = {
+            cost: ethers.parseUnits("10", 18),   // 10 TOTEM
+            cooldown: 0,                         // No cooldown
+            maxDaily: 3,                         // 3 times per day
+            minHappiness: 0,                     // No minimum
+            happinessChange: 10,                 // +10 happiness
+            experienceGain: 0,                   // No experience
+            useTimeWindows: true,                // Uses time windows
+            increasesHappiness: true,            // Increases happiness
+            enabled: true                        // Enabled by default
+        };
+        const setFeedConfigTx = await game.updateActionConfig(0, feedConfig); // ActionType.Feed = 0
+        await setFeedConfigTx.wait();
+        
+        // Train action config
+        const trainConfig = {
+            cost: ethers.parseUnits("20", 18),   // 20 TOTEM
+            cooldown: 0,                         // No cooldown
+            maxDaily: 0,                         // Unlimited
+            minHappiness: 20,                    // Minimum 20 happiness
+            happinessChange: 10,                 // 10 happiness
+            experienceGain: 50,                  // +50 experience
+            useTimeWindows: false,               // No time windows
+            increasesHappiness: false,           // Decreases happiness
+            enabled: true                        // Enabled by default
+        };
+        const setTrainConfigTx = await game.updateActionConfig(1, trainConfig); // ActionType.Train = 1
+        await setTrainConfigTx.wait();
+    
+        // Treat action config
+        const treatConfig = {
+            cost: ethers.parseUnits("20", 18),   // 20 TOTEM
+            cooldown: 14400,                     // 4 hour cooldown
+            maxDaily: 0,                         // Unlimited
+            minHappiness: 0,                     // No minimum
+            happinessChange: 10,                 // +10 happiness
+            experienceGain: 0,                   // No experience
+            useTimeWindows: false,               // No time windows
+            increasesHappiness: true,            // Increases happiness
+            enabled: true                        // Enabled by default
+        };
+        const setTreatConfigTx = await game.updateActionConfig(2, treatConfig); // ActionType.Treat = 2
+        await setTreatConfigTx.wait();
+        
         // Deploy Shop Implementation and Proxy
         TotemShop = await ethers.getContractFactory("TotemShop");
         const shopImpl = await TotemShop.deploy();

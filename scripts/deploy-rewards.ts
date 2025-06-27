@@ -22,7 +22,6 @@ async function main() {
         streakBonus: 5,                          // 5% per day
         maxStreakBonus: 100,                     // Max 100% bonus
         minStreak: 0,                            // No minimum
-        gracePeriod: 7200,                       // 2-hour grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 2                   // Two protection tiers for daily
@@ -78,7 +77,6 @@ async function main() {
         streakBonus: 10,                         // 10% per week
         maxStreakBonus: 100,                     // Max 100% bonus
         minStreak: 1,                            // Require at least 1 week
-        gracePeriod: 86400,                      // 1 day grace period
         allowProtection: true,
         enabled: true,
         protectionTierCount: 1                   // One protection tier for weekly

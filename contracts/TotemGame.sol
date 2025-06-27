@@ -154,43 +154,6 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         trustedForwarder = _trustedForwarder;
         gameParams = _initialParams;
         timeWindows = _initialWindows;
-
-        // Initialize default action configurations
-        actionConfigs[ActionType.Feed] = ActionConfig({
-            cost: 10 * 10**18,           // 10 TOTEM
-            cooldown: 0,                 // No cooldown
-            maxDaily: 3,                 // 3 times per day
-            minHappiness: 0,             // No minimum
-            happinessChange: 10,         // +10 happiness
-            experienceGain: 0,           // No experience
-            useTimeWindows: true,        // Uses time windows
-            increasesHappiness: true,    // Increases happiness
-            enabled: true                // Enabled by default
-        });
-
-        actionConfigs[ActionType.Train] = ActionConfig({
-            cost: 20 * 10**18,           // 20 TOTEM
-            cooldown: 0,                 // No cooldown
-            maxDaily: 0,                 // Unlimited
-            minHappiness: 20,            // Minimum 20 happiness
-            happinessChange: 10,         // 10 happiness
-            experienceGain: 50,          // +50 experience
-            useTimeWindows: false,       // No time windows
-            increasesHappiness: false,   // Decreases happiness
-            enabled: true                // Enabled by default
-        });
-
-        actionConfigs[ActionType.Treat] = ActionConfig({
-            cost: 20 * 10**18,           // 20 TOTEM
-            cooldown: 14400,             // 4 hour cooldown
-            maxDaily: 0,                 // Unlimited
-            minHappiness: 0,             // No minimum
-            happinessChange: 10,         // +10 happiness
-            experienceGain: 0,           // No experience
-            useTimeWindows: false,       // No time windows
-            increasesHappiness: true,    // Increases happiness
-            enabled: true                // Enabled by default
-        });
     }
 
     function signup() external {
