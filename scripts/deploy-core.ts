@@ -353,6 +353,57 @@ async function main() {
     await setSpeciesTx.wait();
     console.log("Initial available species set:", initialSpecies);
 
+    // Configure action configs
+    console.log("\nConfiguring action configs...");
+    
+    // Feed action config
+    const feedConfig = {
+        cost: ethers.parseUnits("10", 18),   // 10 TOTEM
+        cooldown: 0,                         // No cooldown
+        maxDaily: 3,                         // 3 times per day
+        minHappiness: 0,                     // No minimum
+        happinessChange: 10,                 // +10 happiness
+        experienceGain: 0,                   // No experience
+        useTimeWindows: true,                // Uses time windows
+        increasesHappiness: true,            // Increases happiness
+        enabled: true                        // Enabled by default
+    };
+    const setFeedConfigTx = await totemGame.updateActionConfig(0, feedConfig); // ActionType.Feed = 0
+    await setFeedConfigTx.wait();
+    console.log("Feed action config set");
+
+    // Train action config
+    const trainConfig = {
+        cost: ethers.parseUnits("20", 18),   // 20 TOTEM
+        cooldown: 0,                         // No cooldown
+        maxDaily: 0,                         // Unlimited
+        minHappiness: 20,                    // Minimum 20 happiness
+        happinessChange: 10,                 // 10 happiness
+        experienceGain: 50,                  // +50 experience
+        useTimeWindows: false,               // No time windows
+        increasesHappiness: false,           // Decreases happiness
+        enabled: true                        // Enabled by default
+    };
+    const setTrainConfigTx = await totemGame.updateActionConfig(1, trainConfig); // ActionType.Train = 1
+    await setTrainConfigTx.wait();
+    console.log("Train action config set");
+
+    // Treat action config
+    const treatConfig = {
+        cost: ethers.parseUnits("20", 18),   // 20 TOTEM
+        cooldown: 14400,                     // 4 hour cooldown
+        maxDaily: 0,                         // Unlimited
+        minHappiness: 0,                     // No minimum
+        happinessChange: 10,                 // +10 happiness
+        experienceGain: 0,                   // No experience
+        useTimeWindows: false,               // No time windows
+        increasesHappiness: true,            // Increases happiness
+        enabled: true                        // Enabled by default
+    };
+    const setTreatConfigTx = await totemGame.updateActionConfig(2, treatConfig); // ActionType.Treat = 2
+    await setTreatConfigTx.wait();
+    console.log("Treat action config set");
+
     // Set up Forwarder, transfer POL
     console.log("\nSetting proxy addresses in forwarder...");
     const setForwarderTx = await forwarder.batchSetContractStatus([
