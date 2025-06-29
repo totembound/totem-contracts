@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { TotemHelpers } from "./helpers/TotemHelpers.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
 import { ITotemChallenges } from "./interfaces/ITotemChallenges.sol";
@@ -37,7 +38,7 @@ error UnauthorizedContract();
 error NoTotemsSelected();
 error NoAvailableSpecies();
 
-contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using TotemHelpers for uint256;
 
     // Core game mechanics structs
@@ -148,6 +149,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
         
         totemToken = TotemToken(_totemToken);
         totemNFT = TotemNFT(_totemNFT);
@@ -156,7 +158,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         timeWindows = _initialWindows;
     }
 
-    function signup() external {
+    function signup() external nonReentrant {
         address user = _msgSender();
         if (hasSignedUp[user]) revert AlreadySignedUp();
         
@@ -167,7 +169,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit UserSignedUp(user);
     }
 
-    function processBuyTokens(address user) external payable {
+    function processBuyTokens(address user) external payable nonReentrant {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         if (!hasSignedUp[user]) revert NotSignedUp();
         
@@ -185,7 +187,7 @@ contract TotemGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!sent) revert PolTransferFailed();
     }
 
-    function processPurchaseTotem(address user, TotemNFT.Species species) external returns (uint256 tokenId) {
+    function processPurchaseTotem(address user, TotemNFT.Species species) external nonReentrant returns (uint256 tokenId) {
         if (!authorizedContracts[msg.sender]) revert UnauthorizedContract();
         if (!hasSignedUp[user]) revert NotSignedUp();
 
