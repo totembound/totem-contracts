@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-contract TotemTrustedForwarder is Ownable {
+contract TotemTrustedForwarder is Ownable, ReentrancyGuard {
     using ECDSA for bytes32;
 
     struct ForwardRequest {
@@ -64,6 +65,7 @@ contract TotemTrustedForwarder is Ownable {
 
     function relay(ForwardRequest calldata req, bytes calldata signature) 
         external 
+        nonReentrant
         returns (bool, bytes memory) 
     {
         if (!allowedContracts[req.to]) revert UnauthorizedContract();
