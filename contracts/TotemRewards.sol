@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { ITotemAchievements } from "./interfaces/ITotemAchievements.sol";
 import { TotemNFT } from "./TotemNFT.sol";
 import { TotemGame } from "./TotemGame.sol";
@@ -37,7 +38,7 @@ error OneTimeRewardAlreadyClaimed();
 error OneTimeRewardNotConfigured();
 error NotTokenOwner();
 
-contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     // Core structs for reward configuration
     struct RewardConfig {
         uint256 baseAmount;        // Base TOTEM reward amount
@@ -141,6 +142,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
 
         if (_trustedForwarder == address(0)) revert InvalidForwarderAddress();
         totemGame = TotemGame(payable(_totemGame));
@@ -219,7 +221,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Claim functions
-    function claim(bytes32 rewardId) external returns (uint256) {
+    function claim(bytes32 rewardId) external nonReentrant returns (uint256) {
         address user = _msgSender();
         RewardInfo storage reward = _rewardInfo[rewardId];
         UserTracking storage tracking = _userTracking[rewardId][user];
@@ -251,7 +253,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Claim one-time reward
-    function claimOneTimeReward(bytes32 rewardId, uint256 totemId) external {
+    function claimOneTimeReward(bytes32 rewardId, uint256 totemId) external nonReentrant {
         address user = _msgSender();
         OneTimeRewardConfig memory reward = oneTimeRewards[rewardId];
         
@@ -285,7 +287,7 @@ contract TotemRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Protection functions
-    function purchaseProtection(bytes32 rewardId, uint8 tier) external {
+    function purchaseProtection(bytes32 rewardId, uint8 tier) external nonReentrant {
         address user = _msgSender();
         RewardInfo storage reward = _rewardInfo[rewardId];
         UserTracking storage tracking = _userTracking[rewardId][user];
