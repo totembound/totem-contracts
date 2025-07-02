@@ -1,92 +1,32 @@
-import { ethers, network } from "hardhat";
-import { loadDeployment, saveDeployment } from "./helpers";
-import { TotemExpeditions, TotemProxyAdmin, TotemAchievements } from "../typechain-types";
+import { ethers } from "hardhat";
+import { DeploymentContext, DeploymentPhase, DeploymentStep } from "../types/deployment";
+import { withErrorHandling } from "../utils/error-handler";
+import { TotemExpeditions } from "../../typechain-types";
 
-async function main() {
-    const [deployer] = await ethers.getSigners();
-    const networkName = network.name;
-    console.log("Deploying TotemExpeditions contract with:", deployer.address);
-    
-    // Load existing deployment info
-    const deployment = loadDeployment(networkName);
-    
-    const achievements = await ethers.getContractAt(
-        "TotemAchievements",
-        deployment.achievementsProxy
-    ) as TotemAchievements;
+export async function configureExpeditions(context: DeploymentContext): Promise<void> {
+  const { signer, state } = context;
+  
+  console.log("\n🗺️  Phase 9: Expeditions Configuration");
+  console.log("====================================");
 
-    // Deploy implementation
-    console.log("\nDeploying TotemExpeditions implementation...");
-    const TotemExpeditionsFactory = await ethers.getContractFactory("TotemExpeditions");
-    const expeditionsImplementation = await TotemExpeditionsFactory.deploy();
-    await expeditionsImplementation.waitForDeployment();
-    const expeditionsImplementationAddress = await expeditionsImplementation.getAddress();
-    console.log("TotemExpeditions implementation deployed to:", expeditionsImplementationAddress);
-    
-    // Get ProxyAdmin
-    console.log("\nLoading ProxyAdmin...");
-    const proxyAdmin = await ethers.getContractAt("TotemProxyAdmin", deployment.proxyAdmin) as TotemProxyAdmin;
-    
-    // Prepare initialization data
-    const initData = TotemExpeditionsFactory.interface.encodeFunctionData("initialize", [
-        deployment.gameProxy,          // TotemGame address
-        deployment.tokenProxy,         // TotemToken address
-        deployment.totemNFTProxy,      // TotemNFT address
-        deployment.totemTrustedForwarder // Trusted forwarder address
-    ]);
-    
-    // Deploy Proxy for TotemExpeditions
-    console.log("\nDeploying Expeditions Proxy...");
-    const TotemProxy = await ethers.getContractFactory("TotemProxy");
-    const expeditionsProxy = await TotemProxy.deploy(
-        expeditionsImplementationAddress,
-        deployment.proxyAdmin,
-        initData
-    );
-    await expeditionsProxy.waitForDeployment();
-    const expeditionsProxyAddress = await expeditionsProxy.getAddress();
-    console.log("Expeditions Proxy deployed to:", expeditionsProxyAddress);
-    
-    // Set game contract in expeditions
-    console.log("\nSetting game contract in expeditions...");
-    const game = await ethers.getContractAt("TotemGame", deployment.gameProxy);
-    const expeditions = await ethers.getContractAt("TotemExpeditions", expeditionsProxyAddress) as TotemExpeditions;
-    await (await expeditions.setGame(deployment.gameProxy)).wait();
-    console.log("Game contract set in expeditions");
+  const getAddress = (contractName: string): string => {
+    const contract = state.deployedContracts[contractName];
+    if (!contract) throw new Error(`Contract ${contractName} not found`);
+    return contract.address;
+  };
 
-    // Also, the game contract needs to set the expeditions contract
-    console.log("\nSetting expeditions contract in game...");
-    await (await game.setExpeditions(expeditionsProxyAddress)).wait();
-    console.log("Expeditions contract set in game");
+  await withErrorHandling(async () => {
+    console.log("Loading Expeditions contract (already deployed as proxy)...");
+    
+    // Get contract instance with proper typing
+    const expeditionsContract = await ethers.getContractAt("TotemExpeditions", getAddress("expeditionsProxy"), signer) as TotemExpeditions;
 
-    // Set achievements contract in TotemExpeditions
-    console.log("\nSetting achievements contract...");
-    await (await expeditions.setAchievements(deployment.achievementsProxy)).wait();
-    const authExpeditionsTx = await achievements.authorize(expeditionsProxyAddress);
-    await authExpeditionsTx.wait();
-    console.log("Achievements contract set");
-    
-    // Add forwarder to trusted contracts
-    console.log("\nUpdating forwarder contract status...");
-    const forwarder = await ethers.getContractAt("TotemTrustedForwarder", deployment.totemTrustedForwarder);
-    await (await forwarder.setContractStatus(expeditionsProxyAddress, true)).wait();
-    console.log("Expeditions proxy added to trusted contracts");
+    console.log("Configuring expeditions...");
 
-    // Update deployment info
-    console.log("\nUpdating deployment info...");
-    const updatedDeployment = {
-        ...deployment,
-        expeditionsImplementation: expeditionsImplementationAddress,
-        expeditionsProxy: expeditionsProxyAddress
-    };
-    saveDeployment(networkName, updatedDeployment);
-    
-    console.log("\nConfiguring expeditions...");
-    
     // Helper function to convert hours to seconds
     const hoursToSeconds = (hours: number) => hours * 60 * 60;
     
-    // Configuration for 3-hour expeditions
+    // Configuration for 3-hour expeditions (from original deploy-expeditions.ts)
     const threeHourExpeditions = [
         {
             id: "wind-scout-patrol",
@@ -246,38 +186,85 @@ async function main() {
         }
     ];
     
-    // Deploy all expeditions
+    // Deploy all expeditions (from original deploy-expeditions.ts)
     const allExpeditions = [
-        ...threeHourExpeditions,
-        ...sixHourExpeditions,
-        ...twelveHourExpeditions,
-        ...twentyFourHourExpeditions
+      ...threeHourExpeditions,
+      ...sixHourExpeditions,
+      ...twelveHourExpeditions,
+      ...twentyFourHourExpeditions
     ];
     
     for (const config of allExpeditions) {
-        console.log(`Configuring ${config.name}...`);
-        const tx = await expeditions.configureExpedition(
-            config.id,
-            config.name,
-            config.domain,
-            config.duration,
-            config.totemCost,
-            config.happinessCost,
-            config.baseExp,
-            config.affinityWeights as [number, number, number],
-            config.runeDropChances as [number, number, number],
-            config.minStage
-        );
-        await tx.wait();
-        console.log(`${config.name} configured!`);
+      console.log(`Configuring ${config.name}...`);
+      const tx = await expeditionsContract.configureExpedition(
+        config.id,
+        config.name,
+        config.domain,
+        config.duration,
+        config.totemCost,
+        config.happinessCost,
+        config.baseExp,
+        config.affinityWeights as [number, number, number],
+        config.runeDropChances as [number, number, number],
+        config.minStage
+      );
+      await tx.wait();
+      console.log(`✅ ${config.name} configured!`);
     }
-    
-    console.log("\nTotemExpeditions deployment and configuration complete!");
+
+    // Authorize expeditions in game contract
+    console.log("Authorizing expeditions in game...");
+    const game = await ethers.getContractAt("TotemGame", getAddress("gameProxy"), signer);
+    await (await game.authorize(getAddress("expeditionsProxy"))).wait();
+    console.log("✅ Expeditions authorized in game");
+
+  }, context, context.errorHandler);
+
+  state.phase = DeploymentPhase.REWARDS_CONFIG;
+  console.log("\n✅ Phase 9 Complete: Expeditions configured");
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+export function getExpeditionsConfigSteps(): DeploymentStep[] {
+  return [
+    { 
+      id: "three-hour-expeditions", 
+      name: "Configure 3-Hour Expeditions (3)", 
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "six-hour-expeditions", 
+      name: "Configure 6-Hour Expeditions (3)", 
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "twelve-hour-expeditions", 
+      name: "Configure 12-Hour Expeditions (3)", 
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "twentyfour-hour-expeditions", 
+      name: "Configure 24-Hour Expeditions (3)", 
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "authorize-expeditions", 
+      name: "Authorize Expeditions in Game", 
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy", "gameProxy"],
+      optional: false,
+      retryable: true
+    }
+  ];
+}

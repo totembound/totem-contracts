@@ -1,76 +1,80 @@
-import { ethers, network } from "hardhat";
-import { loadDeployment } from "./helpers";
-import { TotemAchievements } from "../typechain-types";
+import { ethers } from "hardhat";
+import { DeploymentContext, DeploymentPhase, DeploymentStep } from "../types/deployment";
+import { withErrorHandling } from "../utils/error-handler";
+
 const ONETIME_REQUIREMENT = ethers.MaxUint256;
 
-async function main() {
-    const networkName = network.name;
-    const deployment = loadDeployment(networkName);
-    const [deployer] = await ethers.getSigners();
+export async function configureAchievements(context: DeploymentContext): Promise<void> {
+  const { signer, state } = context;
+  
+  console.log("\n🏆 Phase 7: Achievements Configuration");
+  console.log("=====================================");
 
-    // Get TotemAchievements contract instance
-    const achievements = await ethers.getContractAt(
-        "TotemAchievements",
-        deployment.achievementsProxy
-    ) as TotemAchievements;
+  const getAddress = (contractName: string) => {
+    const contract = state.deployedContracts[contractName];
+    if (!contract) throw new Error(`Contract ${contractName} not found`);
+    return contract.address;
+  };
 
-    console.log("Configuring achievements with:", deployer.address);
+  await withErrorHandling(async () => {
+    console.log("Loading achievements contract...");
+    const achievements = await ethers.getContractAt("TotemAchievements", getAddress("achievementsProxy"), signer);
 
     enum AchievementCategory {
-        Evolution=0,      // Stage based
-        Collection=1,     // NFT ownership based
-        Streak=2,         // Time consistency based
-        Action=3,         // Game action based
-        Challenge=4,      // Challenge completion based
-        Expedition=5      // Expedition completion based
+      Evolution = 0,      // Stage based
+      Collection = 1,     // NFT ownership based
+      Streak = 2,         // Time consistency based
+      Action = 3,         // Game action based
+      Challenge = 4,      // Challenge completion based
+      Expedition = 5      // Expedition completion based
     }
 
     enum AchievementType {
-        OneTime=0,       // Single unlock with badge
-        Progression=1    // Multiple milestones with badges
+      OneTime = 0,       // Single unlock with badge
+      Progression = 1    // Multiple milestones with badges
     }
 
     // Achievements for collection, rarity discoveries
     const collectionAchievements = [
         {
-            id: "rare_collector",
+            idString: "rare_collector",
             name: "Rare Collector",
             description: "Obtain your first Rare totem",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/rare",
             subType: ethers.id("rarity"),
             requirements: [],
             milestones: []
         },
         {
-            id: "epic_collector",
+            idString: "epic_collector",
             name: "Epic Collector",
             description: "Obtain your first Epic totem",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/epic",
             subType: ethers.id("rarity"),
             requirements: [],
             milestones: []
         },
         {
-            id: "legendary_collector",
+            idString: "legendary_collector",
             name: "Legendary Collector",
             description: "Obtain your first Legendary totem",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/rarity/legendary",
             subType: ethers.id("rarity"),
             requirements: [],
             milestones: []
         },
         {
-            id: "collector_progression",
+            idString: "collector_progression",
             name: "Totem Collector",
             description: "Become a legendary collector of mystical totems",
             category: AchievementCategory.Collection,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/collector/progression",
             subType: ethers.id("totems"),
             requirements: [], // Base progression
@@ -126,22 +130,22 @@ async function main() {
             ]
         },
         {
-            id: "species_mastery",
+            idString: "species_mastery",
             name: "Totem Taxonomist",
             description: "Collect each unique species of totem, building a complete catalogue of their diverse forms",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/collection/totem-taxonomist",
             subType: ethers.id("species"),
             requirements: [],
             milestones: []
         },
         {
-            id: "affinity_specialist",
+            idString: "affinity_specialist",
             name: "Affinity Specialist",
             description: "Master collecting totems of a single affinity, unlocking deep understanding of their unique properties",
             category: AchievementCategory.Collection,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/collection/affinity-specialist",
             subType: ethers.id("affinity"),
             requirements: [],
@@ -167,11 +171,11 @@ async function main() {
             ],
         },
         {
-            id: "affinity_diversity",
+            idString: "affinity_diversity",
             name: "Affinity Harmonizer",
             description: "Collect rare totems from each affinity to unlock a deeper understanding",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/collection/essence-harmonizer",
             subType: ethers.id("affinity"),
             requirements: [{
@@ -181,11 +185,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "domain_specialist",
+            idString: "domain_specialist",
             name: "Domain Specialist",
             description: "Master collecting totems of a single domain, deepening your connection to their realm of origin",
             category: AchievementCategory.Collection,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/collection/domain-specialist",
             subType: ethers.id("domain"),
             requirements: [],
@@ -211,11 +215,11 @@ async function main() {
             ]
         },
         {
-            id: "domain_diversity",
+            idString: "domain_diversity",
             name: "Domain Wayfarer",
             description: "Collect rare totems from all mystical domains to unlock their elemental nature",
             category: AchievementCategory.Collection,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/collection/comain-wayfarer",
             subType: ethers.id("domain"),
             requirements: [{
@@ -225,11 +229,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "anti_meta_collector",
+            idString: "anti_meta_collector",
             name: "Underdog Collector",
             description: "Collect and maximize the underdogs, uncommon and rare totems",
             category: AchievementCategory.Collection,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/collection/underdog",
             subType: ethers.id("rarity"),
             requirements: [],
@@ -255,11 +259,11 @@ async function main() {
             ]
         },
         {
-            id: "seasonal_collector",
+            idString: "seasonal_collector",
             name: "Seasonal Spirit Keeper",
             description: "Collect special edition totems during seasonal events, preserving the timeline of mystical discoveries",
             category: AchievementCategory.Collection,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/seasonal/collector",
             subType: ethers.id("seasonal"),
             requirements: [],
@@ -292,14 +296,21 @@ async function main() {
         }
     ];
 
+    console.log("Configuring collection achievements...");
+    for (const achievement of collectionAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
+    }
+
     // Initialize default achievements
     const evolutionAchievements = [
         {
-            id: "rare_evolution",
+            idString: "rare_evolution",
             name: "Rare Elder Evolution",
             description: "Evolve a Rare totem to Elder",
             category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/evolution/rare",
             subType: ethers.id("rarity_evolution"),
             requirements: [{
@@ -309,11 +320,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "epic_evolution",
+            idString: "epic_evolution",
             name: "Epic Elder Evolution",
             description: "Evolve an Epic totem to Elder",
             category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/evolution/epic",
             subType: ethers.id("rarity_evolution"),
             requirements: [{
@@ -323,11 +334,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "legendary_evolution",
+            idString: "legendary_evolution",
             name: "Legendary Elder Evolution",
             description: "Evolve a Legendary totem to Elder",
             category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/evolution/legendary",
             subType: ethers.id("rarity_evolution"),
             requirements: [{
@@ -337,11 +348,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "evolution_progression",
+            idString: "evolution_progression",
             name: "Evolution Mastery",
             description: "Master the art of evolving your Totem through different stages",
             category: AchievementCategory.Evolution,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/evolution/progression",
             subType: ethers.id("evolution"),
             requirements: [], // Base progression achievement
@@ -373,11 +384,11 @@ async function main() {
             ]
         },
         {
-            id: "prestige_progression",
+            idString: "prestige_progression",
             name: "Prestige Collective",
             description: "Accumulate prestige levels across your totems, showcasing your mastery of totem evolution and growth",
             category: AchievementCategory.Evolution,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/prestige/progression",
             subType: ethers.id("prestige"),
             requirements: [{
@@ -430,11 +441,11 @@ async function main() {
             ]
         },
         {
-            id: "color_collector_evolution",
+            idString: "color_collector_evolution",
             name: "Chromatic Mastery",
             description: "Evolve totems of all unique colors to Elder stage",
             category: AchievementCategory.Evolution,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/evolution/chromatic",
             subType: ethers.id("color"),
             requirements: [{
@@ -444,11 +455,11 @@ async function main() {
             milestones: []
         },
         {
-            id: "mixed_affinity_evolution",
+            idString: "mixed_affinity_evolution",
             name: "Balanced Spirit Keeper",
             description: "Evolve totems with different affinities to their maximum potential",
             category: AchievementCategory.Evolution,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/evolution/balanced",
             subType: ethers.id("affinity"),
             requirements: [],
@@ -469,13 +480,20 @@ async function main() {
         }
     ];
 
+    console.log("Configuring evolution achievements...");
+    for (const achievement of evolutionAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
+    }
+
     const streakAchievements = [
         {
-            id: "login_progression",
+            idString: "login_progression",
             name: "Daily Devotion",
             description: "Log in daily to keep your streak alive!",
             category: AchievementCategory.Streak,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/streak/login/progression",
             subType: ethers.id("daily_login"),
             requirements: [], // Base streak achievement
@@ -513,11 +531,11 @@ async function main() {
             ]
         },
         {
-            id: "persistence_reward",
+            idString: "persistence_reward",
             name: "Timeless Keeper",
             description: "Demonstrate long-term commitment to your totems",
             category: AchievementCategory.Streak,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/persistence/keeper",
             subType: ethers.id("long_term_engagement"),
             requirements: [],
@@ -543,11 +561,11 @@ async function main() {
             ]
         },
         {
-            id: "referral_master",
+            idString: "referral_master",
             name: "Totem Recruiter",
             description: "Bring new spirit keepers into the TotemBound world",
             category: AchievementCategory.Streak,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/community/recruiter",
             subType: ethers.id("referral"),
             requirements: [],
@@ -573,11 +591,11 @@ async function main() {
             ]
         },
         {
-            id: "community_ambassador",
+            idString: "community_ambassador",
             name: "Community Ambassador",
             description: "Engage with the TotemBound community and help others",
             category: AchievementCategory.Streak,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/community/ambassador",
             subType: ethers.id("social_engagement"),
             requirements: [],
@@ -604,13 +622,20 @@ async function main() {
         }
     ];
 
+    console.log("Configuring streak achievements...");
+    for (const achievement of streakAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
+    }
+
     const actionAchievements = [
         {
-            id: "feed_progression",
+            idString: "feed_progression",
             name: "Feeding Mastery",
             description: "Master the art of feeding your Totem",
             category: AchievementCategory.Action,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/action/feed/progression",
             subType: ethers.id("feed_count"),
             requirements: [], // Base action achievement
@@ -666,11 +691,11 @@ async function main() {
             ]
         },
         {
-            id: "treat_progression",
+            idString: "treat_progression",
             name: "Treating Mastery",
             description: "Master the art of treating your Totem",
             category: AchievementCategory.Action,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/streak/action/treat/progression",
             subType: ethers.id("treat_count"),
             requirements: [], // Base action achievement
@@ -726,11 +751,11 @@ async function main() {
             ]
         },
         {
-            id: "train_progression",
+            idString: "train_progression",
             name: "Training Mastery",
             description: "Master the art of training your Totem",
             category: AchievementCategory.Action,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/action/train/progression",
             subType: ethers.id("train_count"),
             requirements: [], // Base action achievement
@@ -786,11 +811,11 @@ async function main() {
             ]
         },
         {
-            id: "balanced_care",
+            idString: "balanced_care",
             name: "Holistic Caretaker",
             description: "Maintain perfect balance in feeding, training, and treating",
             category: AchievementCategory.Action,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/action/balanced-care",
             subType: ethers.id("balanced_actions"),
             requirements: [],
@@ -853,24 +878,31 @@ async function main() {
         }
     ];
 
+    console.log("Configuring action achievements...");
+    for (const achievement of actionAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
+    }
+
     const challengeAchievements = [
         {
-            id: "challenge_initiate",
+            idString: "challenge_initiate",
             name: "Challenge Initiate",
             description: "Face your first challenge and begin your journey to greatness",
             category: AchievementCategory.Challenge,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/challenge/initiate",
             subType: ethers.id("challenge"),
             requirements: [],
             milestones: []
         },
         {
-            id: "challenge_progression",
+            idString: "challenge_progression",
             name: "Challenge Master",
             description: "Master increasingly difficult challenges and prove your worth",
             category: AchievementCategory.Challenge,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/challenge/progression",
             subType: ethers.id("challenge"),
             requirements: [{
@@ -923,25 +955,32 @@ async function main() {
             ]
         }
     ];
+
+    console.log("Configuring challenge achievements...");
+    for (const achievement of challengeAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
+    }
     
     const expeditionAchievements = [
         {
-            id: "expedition_explorer",
+            idString: "expedition_explorer",
             name: "Expedition Explorer",
             description: "Begin your journey as an expedition explorer",
             category: AchievementCategory.Expedition,
-            type: AchievementType.OneTime,
+            achievementType: AchievementType.OneTime,
             badgeUri: "ipfs://badge/expedition/explorer",
             subType: ethers.id("expedition"),
             requirements: [],
             milestones: []
         },
         {
-            id: "expedition_progression",
+            idString: "expedition_progression",
             name: "Expedition Expert",
             description: "Venture forth on increasingly challenging expeditions",
             category: AchievementCategory.Expedition,
-            type: AchievementType.Progression,
+            achievementType: AchievementType.Progression,
             badgeUri: "ipfs://badge/expedition/progression",
             subType: ethers.id("expedition"),
             requirements: [{
@@ -995,38 +1034,68 @@ async function main() {
         }
     ];
 
-    const achievementConfigs = [
-        ...collectionAchievements,
-        ...evolutionAchievements,
-        ...streakAchievements,
-        ...actionAchievements,
-        ...challengeAchievements,
-        ...expeditionAchievements
-    ];
-
-    for (const config of achievementConfigs) {
-        console.log(`Configuring achievement: ${config.id}`);
-        const achievementConfig = {
-            idString: config.id,
-            name: config.name,
-            description: config.description,
-            category: config.category,
-            achievementType: config.type,
-            badgeUri: config.badgeUri,
-            subType: config.subType,
-            milestones: config.milestones,
-            requirements: config.requirements || []
-        };
-    
-        await achievements.configureAchievement(achievementConfig);
+    console.log("Configuring expedition achievements...");
+    for (const achievement of expeditionAchievements) {
+      const tx = await achievements.configureAchievement(achievement);
+      await tx.wait();
+      console.log(`✅ Created achievement: ${achievement.name}`);
     }
 
-    console.log("\nReward system deployment and configuration complete!");
+  }, context, context.errorHandler);
+
+  state.phase = DeploymentPhase.CHALLENGES_CONFIG;
+  console.log("\n✅ Phase 7 Complete: Achievements configured");
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+export function getAchievementsConfigSteps(): DeploymentStep[] {
+  return [
+    { 
+      id: "collection-achievements", 
+      name: "Configure Collection Achievements (9)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "evolution-achievements", 
+      name: "Configure Evolution Achievements (4)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "streak-achievements", 
+      name: "Configure Streak Achievements (4)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "action-achievements", 
+      name: "Configure Action Achievements (4)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "challenge-achievements", 
+      name: "Configure Challenge Achievements (2)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "expedition-achievements", 
+      name: "Configure Expedition Achievements (2)", 
+      phase: DeploymentPhase.ACHIEVEMENTS_CONFIG,
+      dependencies: ["achievementsProxy"],
+      optional: false,
+      retryable: true
+    }
+  ];
+}

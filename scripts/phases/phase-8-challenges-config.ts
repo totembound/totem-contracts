@@ -1,37 +1,25 @@
-import { ethers, network } from "hardhat";
-import { loadDeployment } from "./helpers";
-import { TotemChallenges, TotemGame } from "../typechain-types";
+import { ethers } from "hardhat";
+import { DeploymentContext, DeploymentPhase, DeploymentStep } from "../types/deployment";
+import { withErrorHandling } from "../utils/error-handler";
 
-async function main() {
-    const networkName = network.name;
-    const deployment = loadDeployment(networkName);
-    const [deployer] = await ethers.getSigners();
+export async function configureChallenges(context: DeploymentContext): Promise<void> {
+  const { signer, state } = context;
+  
+  console.log("\n⚔️  Phase 8: Challenges Configuration");
+  console.log("===================================");
 
-    console.log("Configuring challenges with:", deployer.address);
+  const getAddress = (contractName: string) => {
+    const contract = state.deployedContracts[contractName];
+    if (!contract) throw new Error(`Contract ${contractName} not found`);
+    return contract.address;
+  };
 
-    // Get TotemChallenges contract instance
-    const challenges = await ethers.getContractAt(
-        "TotemChallenges",
-        deployment.challengesProxy
-    ) as TotemChallenges;
+  await withErrorHandling(async () => {
+    console.log("Loading game contract (challenges owned by game)...");
+    const game = await ethers.getContractAt("TotemGame", getAddress("gameProxy"), signer);
 
-    const game = await ethers.getContractAt(
-        "TotemGame",
-        deployment.gameProxy
-    ) as TotemGame;
-
-    // Setup challenge types and attributes
-    enum ChallengeType {
-        Trial,
-        Arena
-    }
-
-    enum ChallengeAttribute {
-        Balance,
-        Strength,
-        Agility,
-        Wisdom
-    }
+    enum ChallengeType { Trial, Arena }
+    enum ChallengeAttribute { Balance, Strength, Agility, Wisdom }
 
     // Define achievement IDs (should match with achievements deployment)
     const strengthAchievementId = ethers.id("challenge_progression");
@@ -39,8 +27,8 @@ async function main() {
     const wisdomAchievementId = ethers.id("challenge_progression");
     const balanceAchievementId = ethers.id("challenge_progression");
 
-    // Configure Strength Trials
-    console.log("\nConfiguring Strength Trials...");
+    console.log("Configuring Strength Trials...");
+    
     const strengthTrials = [
         {
             id: ethers.id("strength-challenge-1"),
@@ -95,8 +83,29 @@ async function main() {
         }
     ];
 
-    // Configure Agility Trials
-    console.log("\nConfiguring Agility Trials...");
+    for (const trial of strengthTrials) {
+      const tx = await game.configureChallenge(
+        trial.id,
+        trial.name,
+        trial.description,
+        trial.type,
+        trial.attribute,
+        trial.requirements,
+        trial.maxAttempts,
+        trial.maxScore,
+        trial.achievementId
+      );
+      await tx.wait();
+      console.log(`✅ Created challenge: ${trial.name}`);
+
+      // Add metadata for UI (from original script)
+      await (await game.setChallengeMetadata(trial.id, "category", "strength")).wait();
+      await (await game.setChallengeMetadata(trial.id, "difficulty", trial.requirements.stage.toString())).wait();
+      console.log(`Metadata set for ${trial.name}`);
+    }
+
+    console.log("Configuring Agility Trials...");
+    
     const agilityTrials = [
         {
             id: ethers.id("agility-challenge-1"),
@@ -151,8 +160,29 @@ async function main() {
         }
     ];
 
-    // Configure Wisdom Trials
-    console.log("\nConfiguring Wisdom Trials...");
+    for (const trial of agilityTrials) {
+      const tx = await game.configureChallenge(
+        trial.id,
+        trial.name,
+        trial.description,
+        trial.type,
+        trial.attribute,
+        trial.requirements,
+        trial.maxAttempts,
+        trial.maxScore,
+        trial.achievementId
+      );
+      await tx.wait();
+      console.log(`✅ Created challenge: ${trial.name}`);
+
+      // Add metadata for UI (from original script)
+      await (await game.setChallengeMetadata(trial.id, "category", "agility")).wait();
+      await (await game.setChallengeMetadata(trial.id, "difficulty", trial.requirements.stage.toString())).wait();
+      console.log(`Metadata set for ${trial.name}`);
+    }
+
+    console.log("Configuring Wisdom Trials...");
+    
     const wisdomTrials = [
         {
             id: ethers.id("wisdom-challenge-1"),
@@ -207,6 +237,29 @@ async function main() {
         }
     ];
 
+    for (const trial of wisdomTrials) {
+      const tx = await game.configureChallenge(
+        trial.id,
+        trial.name,
+        trial.description,
+        trial.type,
+        trial.attribute,
+        trial.requirements,
+        trial.maxAttempts,
+        trial.maxScore,
+        trial.achievementId
+      );
+      await tx.wait();
+      console.log(`✅ Created challenge: ${trial.name}`);
+
+      // Add metadata for UI (from original script)
+      await (await game.setChallengeMetadata(trial.id, "category", "wisdom")).wait();
+      await (await game.setChallengeMetadata(trial.id, "difficulty", trial.requirements.stage.toString())).wait();
+      console.log(`Metadata set for ${trial.name}`);
+    }
+
+    console.log("Configuring Balance Trial...");
+    
     const balanceTrials = [
         {
             id: ethers.id("beginner-challenge-1"),
@@ -225,62 +278,68 @@ async function main() {
             maxScore: 1000,
             achievementId: balanceAchievementId
         }
-    ]
-
-    // Combine all trials
-    const allTrials = [
-        ...strengthTrials,
-        ...agilityTrials,
-        ...wisdomTrials,
-        ...balanceTrials
     ];
 
-    // Configure challenges
-    for (const trial of allTrials) {
-        console.log(`\nConfiguring ${trial.name}...`);
-        console.log("Challenge ID:", trial.id);
-        console.log("Max Attempts:", trial.maxAttempts);
-        console.log("Max Score:", trial.maxScore);
-        console.log("Requirements:", JSON.stringify(trial.requirements));
+    for (const trial of balanceTrials) {
+      const tx = await game.configureChallenge(
+        trial.id,
+        trial.name,
+        trial.description,
+        trial.type,
+        trial.attribute,
+        trial.requirements,
+        trial.maxAttempts,
+        trial.maxScore,
+        trial.achievementId
+      );
+      await tx.wait();
+      console.log(`✅ Created challenge: ${trial.name}`);
 
-        const tx = await game.configureChallenge(
-            trial.id,
-            trial.name,
-            trial.description,
-            trial.type,
-            trial.attribute,
-            trial.requirements,
-            trial.maxAttempts,
-            trial.maxScore,
-            trial.achievementId
-        );
-        const receipt = await tx.wait();
-        console.log("Transaction status:", receipt?.status);
-        //console.log("Transaction logs:", receipt?.logs);
-
-        // Add metadata for UI
-        await (await game.setChallengeMetadata(
-            trial.id,
-            "category",
-            trial.attribute === ChallengeAttribute.Strength ? "strength" :
-            trial.attribute === ChallengeAttribute.Agility ? "agility" : "wisdom"
-        )).wait();
-
-        await (await game.setChallengeMetadata(
-            trial.id,
-            "difficulty",
-            trial.requirements.stage.toString()
-        )).wait();
-
-        console.log(`${trial.name} configured with ID: ${trial.id}`);
+      // Add metadata for UI (from original script)
+      await (await game.setChallengeMetadata(trial.id, "category", "balance")).wait();
+      await (await game.setChallengeMetadata(trial.id, "difficulty", trial.requirements.stage.toString())).wait();
+      console.log(`Metadata set for ${trial.name}`);
     }
 
-    console.log("\nChallenge system deployment and configuration complete!");
+  }, context, context.errorHandler);
+
+  state.phase = DeploymentPhase.EXPEDITIONS_CONFIG;
+  console.log("\n✅ Phase 8 Complete: Challenges configured");
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+export function getChallengesConfigSteps(): DeploymentStep[] {
+  return [
+    { 
+      id: "strength-trials", 
+      name: "Configure Strength Trials (3)", 
+      phase: DeploymentPhase.CHALLENGES_CONFIG,
+      dependencies: ["challengesProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "agility-trials", 
+      name: "Configure Agility Trials (3)", 
+      phase: DeploymentPhase.CHALLENGES_CONFIG,
+      dependencies: ["challengesProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "wisdom-trials", 
+      name: "Configure Wisdom Trials (3)", 
+      phase: DeploymentPhase.CHALLENGES_CONFIG,
+      dependencies: ["challengesProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "balance-trials", 
+      name: "Configure Balance Trials (1)", 
+      phase: DeploymentPhase.CHALLENGES_CONFIG,
+      dependencies: ["challengesProxy"],
+      optional: false,
+      retryable: true
+    }
+  ];
+}

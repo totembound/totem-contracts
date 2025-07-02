@@ -1,19 +1,26 @@
-import { ethers, network } from "hardhat";
-import { loadDeployment } from "./helpers";
+import { ethers } from "hardhat";
+import { DeploymentContext, DeploymentPhase, DeploymentStep } from "../types/deployment";
+import { withErrorHandling } from "../utils/error-handler";
+import { TotemRewards } from "../../typechain-types";
 
-async function main() {
-    const networkName = network.name;
-    const deployment = loadDeployment(networkName);
-    const [deployer] = await ethers.getSigners();
+export async function configureRewards(context: DeploymentContext): Promise<void> {
+  const { signer, state } = context;
+  
+  console.log("\n🎁 Phase 10: Rewards System Configuration");
+  console.log("========================================");
 
-    console.log("Configuring rewards with:", deployer.address);
+  const getAddress = (contractName: string): string => {
+    const contract = state.deployedContracts[contractName];
+    if (!contract) throw new Error(`Contract ${contractName} not found`);
+    return contract.address;
+  };
 
-    // Get TotemRewards contract at proxy address
-    const rewards = await ethers.getContractAt(
-        "TotemRewards",
-        deployment.rewardsProxy
-    );
+  await withErrorHandling(async () => {
+    console.log("Loading rewards contract...");
+    const rewards = await ethers.getContractAt("TotemRewards", getAddress("rewardsProxy"), signer) as TotemRewards;
 
+    console.log("Configuring daily login reward...");
+    
     // Configure Daily Login Reward
     const dailyRewardId = ethers.id("daily_login");
     const dailyConfig = {
@@ -27,7 +34,6 @@ async function main() {
         protectionTierCount: 2                   // Two protection tiers for daily
     };
 
-    console.log("\nConfiguring Daily Login Reward...");
     const dailyTx = await rewards.configureReward(
         dailyRewardId,
         "Daily Login",
@@ -36,10 +42,9 @@ async function main() {
         dailyConfig
     );
     await dailyTx.wait();
-    console.log("Daily reward configured, tx:", dailyTx.hash);
+    console.log("✅ Daily login reward configured");
 
-    // Configure protection tiers for daily reward
-    console.log("\nConfiguring Daily Protection Tiers...");
+    console.log("Configuring daily protection tiers...");
     
     // 1-day protection
     const tier1Tx = await rewards.configureProtectionTier(
@@ -53,7 +58,7 @@ async function main() {
         }
     );
     await tier1Tx.wait();
-    console.log("Tier 1 configured, tx:", tier1Tx.hash);
+    console.log("✅ Daily protection tier 1 configured");
 
     // 7-day protection
     const tier2Tx = await rewards.configureProtectionTier(
@@ -67,8 +72,10 @@ async function main() {
         }
     );
     await tier2Tx.wait();
-    console.log("Tier 2 configured, tx:", tier2Tx.hash);
+    console.log("✅ Daily protection tier 2 configured");
 
+    console.log("Configuring weekly bonus reward...");
+    
     // Configure Weekly Bonus
     const weeklyRewardId = ethers.id("weekly_bonus");
     const weeklyConfig = {
@@ -82,7 +89,6 @@ async function main() {
         protectionTierCount: 1                   // One protection tier for weekly
     };
 
-    console.log("\nConfiguring Weekly Bonus Reward...");
     const weeklyTx = await rewards.configureReward(
         weeklyRewardId,
         "Weekly Bonus",
@@ -91,25 +97,24 @@ async function main() {
         weeklyConfig
     );
     await weeklyTx.wait();
-    console.log("Weekly reward configured, tx:", weeklyTx.hash);
+    console.log("✅ Weekly bonus reward configured");
 
-    // Configure weekly protection tier
-    console.log("\nConfiguring Weekly Protection Tier...");
+    console.log("Configuring weekly protection tier...");
+    
     const weeklyProtectionTx = await rewards.configureProtectionTier(
         weeklyRewardId,
         0,
         {
             cost: ethers.parseEther("500"),     // 500 TOTEM
-            duration: 1209600,                  // 14 days
+            duration: 1209600,                  // 14 days (fixed from original)
             requiredStreak: 4,                  // Need 4-week streak
             enabled: true
         }
     );
     await weeklyProtectionTx.wait();
-    console.log("Weekly protection tier configured, tx:", weeklyProtectionTx.hash);
+    console.log("✅ Weekly protection tier configured");
 
-    // Add metadata attributes for both rewards
-    console.log("\nSetting Reward Metadata...");
+    console.log("Configuring reward metadata...");
     
     // Daily reward metadata
     await (await rewards.setRewardMetadataAttribute(
@@ -137,14 +142,17 @@ async function main() {
         "advanced"
     )).wait();
 
-    console.log("Reward metadata configured");
+    console.log("✅ Reward metadata configured");
 
     // Enable rewards
-    console.log("\nEnabling rewards...");
+    console.log("Enabling recurring rewards...");
     await (await rewards.enableReward(dailyRewardId)).wait();
     await (await rewards.enableReward(weeklyRewardId)).wait();
+    console.log("✅ Recurring rewards enabled");
 
-    // adding one time rewards
+    console.log("Configuring tutorial one-time rewards...");
+    
+    // Tutorial one-time rewards
     const tutorialSteps = [
         {
             id: ethers.id("tutorial_step_1_signup"),
@@ -196,62 +204,70 @@ async function main() {
         }
     ];
 
-    console.log("\nConfiguring tutorial steps...");
     for (let i = 0; i < tutorialSteps.length; i++) {
         const step = tutorialSteps[i];
         
-        try {
-            const tx = await rewards.configureOneTimeReward(
-                step.id,
-                step.name,
-                step.description,
-                step.tokenReward,
-                step.experienceReward,
-                step.requiresTotem
-            );
-            await tx.wait();
-            
-            console.log(`✅ Step ${i + 1}: ${step.name}`);
-            console.log(`   Tokens: ${ethers.formatEther(step.tokenReward)} TOTEM`);
-            console.log(`   Experience: ${step.experienceReward}`);
-            console.log(`   Requires Totem: ${step.requiresTotem}`);
-            console.log(`   TX: ${tx.hash}`);
-        } catch (error: any) {
-            console.log(`❌ Failed to configure step ${i + 1}:`, error.message);
-        }
+        console.log(`Configuring tutorial step ${i + 1}: ${step.name}...`);
+        const tx = await rewards.configureOneTimeReward(
+            step.id,
+            step.name,
+            step.description,
+            step.tokenReward,
+            step.experienceReward,
+            step.requiresTotem
+        );
+        await tx.wait();
+        
+        console.log(`✅ Step ${i + 1}: ${step.name} (${ethers.formatEther(step.tokenReward)} TOTEM, ${step.experienceReward} XP)`);
     }
 
-    // Verify final configuration
-    console.log("\nVerifying configurations...");
-    const rewardIds = await rewards.getRewardIds();
-    console.log(`Found ${rewardIds.length} configured rewards:`);
-    
-    for (const id of rewardIds) {
-        const [name, description, , config] = await rewards.getRewardInfo(id);
-        console.log(`\nReward: ${name}`);
-        console.log(`Description: ${description}`);
-        console.log(`Base Amount: ${ethers.formatEther(config.baseAmount)} TOTEM`);
-        console.log(`Streak Bonus: ${config.streakBonus}%`);
-        console.log(`Max Bonus: ${config.maxStreakBonus}%`);
-        console.log(`Protection Tiers: ${config.protectionTierCount}`);
-        
-        // Check metadata
-        const category = await rewards.getMetadataAttribute(id, "category");
-        const tier = await rewards.getMetadataAttribute(id, "tier");
-        console.log(`Category: ${category}`);
-        console.log(`Tier: ${tier}`);
-        
-        // Verify claiming status for deployer
-        const canClaim = await rewards.isClaimingAllowed(id, deployer.address);
-        console.log(`Can claim: ${canClaim}`);
-    }
+  }, context, context.errorHandler);
 
-    console.log("\nReward system deployment and configuration complete!");
+  state.phase = DeploymentPhase.METADATA_CONFIG;
+  console.log("\n✅ Phase 10 Complete: Rewards system configured");
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+export function getRewardsConfigSteps(): DeploymentStep[] {
+  return [
+    { 
+      id: "daily-rewards", 
+      name: "Configure Daily Login Rewards", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "weekly-rewards", 
+      name: "Configure Weekly Bonus Rewards", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "protection-tiers", 
+      name: "Configure Streak Protection Tiers", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "reward-metadata", 
+      name: "Set Reward Metadata & Enable", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "tutorial-rewards", 
+      name: "Configure Tutorial One-Time Rewards (6)", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    }
+  ];
+}

@@ -76,7 +76,7 @@ async function main() {
 
     const nft = await ethers.getContractAt(
         "TotemNFT",
-        deployment.totemNFTProxy
+        deployment.nftProxy
     ) as unknown as TotemNFT;
 
     const token = await ethers.getContractAt(
@@ -134,7 +134,7 @@ async function main() {
     // Contract balances with more detail
     const gameBalance = await token.balanceOf(deployment.gameProxy);
     const rewardsBalance = await token.balanceOf(deployment.rewardsProxy);
-    const forwarderBalance = await provider.getBalance(deployment.totemTrustedForwarder);
+    const forwarderBalance = await provider.getBalance(deployment.trustedForwarder);
     const tokenContractBalance = await token.balanceOf(deployment.tokenProxy);
     
     console.log("\n=== Contract Balances ===");
