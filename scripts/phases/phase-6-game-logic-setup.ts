@@ -50,7 +50,7 @@ export async function setupGameLogic(context: DeploymentContext): Promise<void> 
       maxDaily: 0,
       minHappiness: 20,
       happinessChange: 10,
-      experienceGain: 1000,
+      experienceGain: 50,
       useTimeWindows: false,
       increasesHappiness: false,
       enabled: true
