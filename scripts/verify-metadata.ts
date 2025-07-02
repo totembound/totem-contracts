@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import { loadDeployment } from "./helpers";
-import { TotemGame, TotemNFT } from "../typechain-types";
+import { TotemGame, TotemNFT, TotemShop } from "../typechain-types";
 import { species, colors, stages, ipfsHashes } from "./totem-metadata";
 
 async function main() {
@@ -14,8 +14,13 @@ async function main() {
 
     const nft = await ethers.getContractAt(
         "TotemNFT",
-        deployment.totemNFTProxy
+        deployment.nftProxy
     ) as unknown as TotemNFT;
+
+    const shop = await ethers.getContractAt(
+        "TotemShop",
+        deployment.shopProxy
+    ) as unknown as TotemShop;
 
     // Verify each combination
     console.log("Verifying Totem Metadata...\n");
@@ -46,7 +51,7 @@ async function main() {
     console.log("\nVerifying bundles...");
 
     for(let i = 0; i < 4; i++) {
-        const bundle = await game.bundles(i);
+        const bundle = await shop.bundles(i);
         console.log(`Bundle ${i}:`);
         console.log(`- POL Cost: ${ethers.formatEther(bundle.polCost)} POL`);
         console.log(`- TOTEM Amount: ${ethers.formatEther(bundle.tokenAmount)} TOTEM`);

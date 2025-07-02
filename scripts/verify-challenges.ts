@@ -9,6 +9,7 @@ enum ChallengeType {
 }
 
 enum ChallengeAttribute {
+    Balance,
     Strength,
     Agility,
     Wisdom

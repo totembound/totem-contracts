@@ -6,17 +6,17 @@ async function main() {
     const deployment = loadDeployment(networkName);
     
     // Get contract instances - updated with new proxy addresses
-    const forwarder = await ethers.getContractAt("TotemTrustedForwarder", deployment.totemTrustedForwarder);
+    const forwarder = await ethers.getContractAt("TotemTrustedForwarder", deployment.trustedForwarder);
     const game = await ethers.getContractAt("TotemGame", deployment.gameProxy);
     const token = await ethers.getContractAt("TotemToken", deployment.tokenProxy); // Changed from totemToken
-    const nft = await ethers.getContractAt("TotemNFT", deployment.totemNFTProxy);
+    const nft = await ethers.getContractAt("TotemNFT", deployment.nftProxy);
 
     console.log("\nVerifying contract setup...");
     
     // 1. Check forwarder whitelisted contracts
     const whitelistedContracts = [
         deployment.gameProxy,
-        deployment.totemNFTProxy,
+        deployment.nftProxy,
         deployment.tokenProxy,
         deployment.rewardsProxy
     ];
@@ -36,9 +36,9 @@ async function main() {
     // 2. Verify game contract's trusted forwarder
     const gameTrustedForwarder = await game.trustedForwarder();
     console.log("\nGame trusted forwarder:", gameTrustedForwarder);
-    console.log("Expected forwarder:", deployment.totemTrustedForwarder);
+    console.log("Expected forwarder:", deployment.trustedForwarder);
     
-    if (gameTrustedForwarder.toLowerCase() !== deployment.totemTrustedForwarder.toLowerCase()) {
+    if (gameTrustedForwarder.toLowerCase() !== deployment.trustedForwarder.toLowerCase()) {
         throw new Error("Game contract's trusted forwarder mismatch!");
     }
     
@@ -77,7 +77,7 @@ async function main() {
     }
 
     // 4. Check forwarder POL balance
-    const balance = await ethers.provider.getBalance(deployment.totemTrustedForwarder);
+    const balance = await ethers.provider.getBalance(deployment.trustedForwarder);
     console.log("\nForwarder POL balance:", ethers.formatEther(balance));
     
     if (balance < ethers.parseEther("0.1")) {
@@ -100,7 +100,7 @@ async function main() {
     // Verify Achievements authorized contracts
     console.log("\nVerifying Achievements authorized contracts...");
     const authorizedContracts = [
-        { name: "TotemNFT", address: deployment.totemNFTProxy },
+        { name: "TotemNFT", address: deployment.nftProxy },
         { name: "TotemGame", address: deployment.gameProxy },
         { name: "TotemRewards", address: deployment.rewardsProxy }
     ];

@@ -24,7 +24,7 @@ async function main() {
     // Get contract instances with types
     const forwarder = await ethers.getContractAt(
         "TotemTrustedForwarder",
-        deployment.totemTrustedForwarder
+        deployment.trustedForwarder
     ) as unknown as TotemTrustedForwarder;
 
     const game = await ethers.getContractAt(
@@ -124,7 +124,7 @@ async function main() {
 
         // Check for events
         const forwarderEvents = receipt?.logs
-        .filter(log => log.address === deployment.totemTrustedForwarder)
+        .filter(log => log.address === deployment.trustedForwarder)
         .map(log => {
             try {
                 return forwarder.interface.parseLog(log);
