@@ -1,0 +1,273 @@
+import { ethers } from "hardhat";
+import { DeploymentContext, DeploymentPhase, DeploymentStep } from "../types/deployment";
+import { withErrorHandling } from "../utils/error-handler";
+import { TotemRewards } from "../../typechain-types";
+
+export async function configureRewards(context: DeploymentContext): Promise<void> {
+  const { signer, state } = context;
+  
+  console.log("\n🎁 Phase 10: Rewards System Configuration");
+  console.log("========================================");
+
+  const getAddress = (contractName: string): string => {
+    const contract = state.deployedContracts[contractName];
+    if (!contract) throw new Error(`Contract ${contractName} not found`);
+    return contract.address;
+  };
+
+  await withErrorHandling(async () => {
+    console.log("Loading rewards contract...");
+    const rewards = await ethers.getContractAt("TotemRewards", getAddress("rewardsProxy"), signer) as TotemRewards;
+
+    console.log("Configuring daily login reward...");
+    
+    // Configure Daily Login Reward
+    const dailyRewardId = ethers.id("daily_login");
+    const dailyConfig = {
+        baseAmount: ethers.parseEther("10"),     // 10 TOTEM
+        interval: 86400,                         // 24 hours
+        streakBonus: 5,                          // 5% per day
+        maxStreakBonus: 100,                     // Max 100% bonus
+        minStreak: 0,                            // No minimum
+        allowProtection: true,
+        enabled: true,
+        protectionTierCount: 2                   // Two protection tiers for daily
+    };
+
+    const dailyTx = await rewards.configureReward(
+        dailyRewardId,
+        "Daily Login",
+        "Claim TOTEM tokens every day and build your streak!",
+        "ipfs://daily-login-icon",
+        dailyConfig
+    );
+    await dailyTx.wait();
+    console.log("✅ Daily login reward configured");
+
+    console.log("Configuring daily protection tiers...");
+    
+    // 1-day protection
+    const tier1Tx = await rewards.configureProtectionTier(
+        dailyRewardId,
+        0,
+        {
+            cost: ethers.parseEther("50"),      // 50 TOTEM
+            duration: 86400,                    // 1 day
+            requiredStreak: 7,                  // Need 7-day streak
+            enabled: true
+        }
+    );
+    await tier1Tx.wait();
+    console.log("✅ Daily protection tier 1 configured");
+
+    // 7-day protection
+    const tier2Tx = await rewards.configureProtectionTier(
+        dailyRewardId,
+        1,
+        {
+            cost: ethers.parseEther("250"),     // 250 TOTEM
+            duration: 604800,                   // 7 days
+            requiredStreak: 14,                 // Need 14-day streak
+            enabled: true
+        }
+    );
+    await tier2Tx.wait();
+    console.log("✅ Daily protection tier 2 configured");
+
+    console.log("Configuring weekly bonus reward...");
+    
+    // Configure Weekly Bonus
+    const weeklyRewardId = ethers.id("weekly_bonus");
+    const weeklyConfig = {
+        baseAmount: ethers.parseEther("100"),    // 100 TOTEM
+        interval: 604800,                        // 7 days
+        streakBonus: 10,                         // 10% per week
+        maxStreakBonus: 100,                     // Max 100% bonus
+        minStreak: 1,                            // Require at least 1 week
+        allowProtection: true,
+        enabled: true,
+        protectionTierCount: 1                   // One protection tier for weekly
+    };
+
+    const weeklyTx = await rewards.configureReward(
+        weeklyRewardId,
+        "Weekly Bonus",
+        "Earn bonus TOTEM tokens for consistent weekly participation!",
+        "ipfs://weekly-bonus-icon",
+        weeklyConfig
+    );
+    await weeklyTx.wait();
+    console.log("✅ Weekly bonus reward configured");
+
+    console.log("Configuring weekly protection tier...");
+    
+    const weeklyProtectionTx = await rewards.configureProtectionTier(
+        weeklyRewardId,
+        0,
+        {
+            cost: ethers.parseEther("500"),     // 500 TOTEM
+            duration: 1209600,                  // 14 days (fixed from original)
+            requiredStreak: 4,                  // Need 4-week streak
+            enabled: true
+        }
+    );
+    await weeklyProtectionTx.wait();
+    console.log("✅ Weekly protection tier configured");
+
+    console.log("Configuring reward metadata...");
+    
+    // Daily reward metadata
+    await (await rewards.setRewardMetadataAttribute(
+        dailyRewardId,
+        "category",
+        "login"
+    )).wait();
+
+    await (await rewards.setRewardMetadataAttribute(
+        dailyRewardId,
+        "tier",
+        "basic"
+    )).wait();
+
+    // Weekly reward metadata
+    await (await rewards.setRewardMetadataAttribute(
+        weeklyRewardId,
+        "category",
+        "bonus"
+    )).wait();
+
+    await (await rewards.setRewardMetadataAttribute(
+        weeklyRewardId,
+        "tier",
+        "advanced"
+    )).wait();
+
+    console.log("✅ Reward metadata configured");
+
+    // Enable rewards
+    console.log("Enabling recurring rewards...");
+    await (await rewards.enableReward(dailyRewardId)).wait();
+    await (await rewards.enableReward(weeklyRewardId)).wait();
+    console.log("✅ Recurring rewards enabled");
+
+    console.log("Configuring tutorial one-time rewards...");
+    
+    // Tutorial one-time rewards
+    const tutorialSteps = [
+        {
+            id: ethers.id("tutorial_step_1_signup"),
+            name: "Claim Your Spiritkeeper Reward",
+            description: "As your journey begins, a small gift awaits. The Ancients honor the brave.",
+            tokenReward: ethers.parseEther("25"),   // 25 TOTEM
+            experienceReward: 0,                    // No experience (no totem yet)
+            requiresTotem: false
+        },
+        {
+            id: ethers.id("tutorial_step_2_mint"),
+            name: "Step into the Spirit World",
+            description: "The veil thins. The Ancients call. But first… a Totem must be chosen.",
+            tokenReward: ethers.parseEther("50"),   // 50 TOTEM
+            experienceReward: 100,                  // 100 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_3_care"),
+            name: "Care for Your Totem",
+            description: "Every Totem hungers, grows, and remembers. Begin the ritual of care.",
+            tokenReward: ethers.parseEther("20"),   // 20 TOTEM
+            experienceReward: 50,                   // 50 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_4_challenge"),
+            name: "Prove Yourself in a Challenge",
+            description: "Test your bond. Step into the Trials and be seen.",
+            tokenReward: ethers.parseEther("30"),   // 30 TOTEM
+            experienceReward: 75,                   // 75 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_5_evolve"),
+            name: "Evolve Your Totem",
+            description: "Only those who journey may grow. Let evolution mark your spirit.",
+            tokenReward: ethers.parseEther("25"),   // 25 TOTEM
+            experienceReward: 50,                   // 50 experience
+            requiresTotem: true
+        },
+        {
+            id: ethers.id("tutorial_step_6_explore"),
+            name: "Explore the World",
+            description: "Beyond the veil lies discovery, Codex, Expeditions, and fellow Spiritkeepers await.",
+            tokenReward: ethers.parseEther("200"),  // 200 TOTEM - big finale!
+            experienceReward: 0,                    // 0 experience
+            requiresTotem: false
+        }
+    ];
+
+    for (let i = 0; i < tutorialSteps.length; i++) {
+        const step = tutorialSteps[i];
+        
+        console.log(`Configuring tutorial step ${i + 1}: ${step.name}...`);
+        const tx = await rewards.configureOneTimeReward(
+            step.id,
+            step.name,
+            step.description,
+            step.tokenReward,
+            step.experienceReward,
+            step.requiresTotem
+        );
+        await tx.wait();
+        
+        console.log(`✅ Step ${i + 1}: ${step.name} (${ethers.formatEther(step.tokenReward)} TOTEM, ${step.experienceReward} XP)`);
+    }
+
+  }, context, context.errorHandler);
+
+  state.phase = DeploymentPhase.METADATA_CONFIG;
+  console.log("\n✅ Phase 10 Complete: Rewards system configured");
+}
+
+export function getRewardsConfigSteps(): DeploymentStep[] {
+  return [
+    { 
+      id: "daily-rewards", 
+      name: "Configure Daily Login Rewards", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "weekly-rewards", 
+      name: "Configure Weekly Bonus Rewards", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "protection-tiers", 
+      name: "Configure Streak Protection Tiers", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "reward-metadata", 
+      name: "Set Reward Metadata & Enable", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    },
+    { 
+      id: "tutorial-rewards", 
+      name: "Configure Tutorial One-Time Rewards (6)", 
+      phase: DeploymentPhase.REWARDS_CONFIG,
+      dependencies: ["rewardsProxy"],
+      optional: false,
+      retryable: true
+    }
+  ];
+}
