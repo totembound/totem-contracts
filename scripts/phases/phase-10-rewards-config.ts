@@ -175,7 +175,7 @@ export async function configureRewards(context: DeploymentContext): Promise<void
             name: "Care for Your Totem",
             description: "Every Totem hungers, grows, and remembers. Begin the ritual of care.",
             tokenReward: ethers.parseEther("20"),   // 20 TOTEM
-            experienceReward: 50,                   // 50 experience
+            experienceReward: 150,                  // 150 experience
             requiresTotem: true
         },
         {
@@ -183,7 +183,7 @@ export async function configureRewards(context: DeploymentContext): Promise<void
             name: "Prove Yourself in a Challenge",
             description: "Test your bond. Step into the Trials and be seen.",
             tokenReward: ethers.parseEther("30"),   // 30 TOTEM
-            experienceReward: 75,                   // 75 experience
+            experienceReward: 200,                  // 200 experience
             requiresTotem: true
         },
         {
@@ -191,7 +191,7 @@ export async function configureRewards(context: DeploymentContext): Promise<void
             name: "Evolve Your Totem",
             description: "Only those who journey may grow. Let evolution mark your spirit.",
             tokenReward: ethers.parseEther("25"),   // 25 TOTEM
-            experienceReward: 50,                   // 50 experience
+            experienceReward: 250,                  // 250 experience
             requiresTotem: true
         },
         {
