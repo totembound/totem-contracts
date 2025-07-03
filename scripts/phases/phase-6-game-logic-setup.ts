@@ -18,7 +18,8 @@ export async function setupGameLogic(context: DeploymentContext): Promise<void> 
     console.log("Setting initial available species...");
     const game = await ethers.getContractAt("TotemGame", getAddress("gameProxy"), signer);
     
-    const initialSpecies = [0, 1, 2, 3, 4, 11]; // Goose, Otter, Wolf, Falcon, Beaver, Owl
+    // Goose, Otter, Wolf, Falcon, Beaver, Deer, Owl
+    const initialSpecies = [0, 1, 2, 3, 4, 5, 11];
     await (await game.updateAvailableSpecies(initialSpecies)).wait();
     
     console.log("✅ Initial species set:", initialSpecies.map(s => `#${s}`).join(', '));
