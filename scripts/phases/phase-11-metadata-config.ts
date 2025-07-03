@@ -180,13 +180,13 @@ export async function configureMetadata(context: DeploymentContext): Promise<voi
       {
         price: ethers.parseEther("250"),         // 250 POL
         tokens: ethers.parseUnits("10000", 18),  // 10000 TOTEM
-        species: 5,                              // Species.Deer
-        color: 21,                               // Color.SunsetOrange
+        species: 6,                              // Species.Woodpecker
+        color: 22,                               // Color.EmberRed
         minRarity: 5,                            // Rarity.Limited
         maxRarity: 5,                            // Rarity.Limited
         isLimited: true,                         // Is limited rarity
         expiry: monthEnd,                        // Expires end of month
-        name: "Monthly Special Bundle (Deer)"
+        name: "Monthly Special Bundle (Woodpecker)"
       }
     ];
 
