@@ -86,6 +86,7 @@ export const species: number[] = [
     4, 4, 4, 4, 4,
     4, 4, 4, 4, 4,
     5, 5, 5, 5, 5,
+    6, 6, 6, 6, 6,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
     11, 11, 11, 11, 11,
@@ -192,6 +193,7 @@ export const colors:  number[] = [
     15, 15, 15, 15, 15,
     20, 20, 20, 20, 20,
     21, 21, 21, 21, 21,
+    22, 22, 22, 22, 22,
     0, 0, 0, 0, 0,
     1, 1, 1, 1, 1,
     2, 2, 2, 2, 2,
@@ -213,6 +215,7 @@ export const colors:  number[] = [
 
 // Stages 0 to 4
 export const stages:  number[] = [
+    0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
     0, 1, 2, 3, 4,
@@ -850,6 +853,12 @@ export const ipfsHashes: string[] = [
     "bafkreig3pmwc4zjlcxydvz2ymvqod4mt2phu5sc45u7al6xamtysesyaqu",
     "bafkreia23uhup5iugvbwtlxi6kg2jumu6m2j4cf7ibo7uj5j5tqlmdarjy",
     "bafkreihuzdtfg5qcxucqqbtqkutcw6bdublypvphbsbe64rvwzbah6g2k4",
+    // Woodpecker - Limited - EmberRed
+    "bafkreieit5sgbp7i7jhld3ntt2zyeel7upmlr54li2yxongsdnw7ymy27a",
+    "bafkreibaoawz7phkegcilysnpl6gsbhy6jgpxuvm6lls4vmw4p2rsuvkcu",
+    "bafkreicgif52gxmdfi6r2ftokvtiaomzjjhvunlj7pwlmf73piu3jepljy",
+    "bafkreibxls5xq4rxjh65oy5alowgjnnvqn5allhdypvboon7ne3qp5tfvm",
+    "bafkreicctp2hmzmsj2vuqwmyvrgu4h5kyijmo24enfzhq5nmxmt4dbupm4",
     // Common
     // Owl - Brown
     "bafkreih4jtnnvl2qeeesgwxhhn2re4wnuo6ly2zjgevbxfatncxwfcecm4",
