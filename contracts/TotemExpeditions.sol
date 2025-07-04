@@ -63,7 +63,7 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
     bytes32[] private _expeditionIds;
     
     // Achievement tracking
-    bytes32 private constant _TUTORIAL_ACHIEVEMENT_ID = keccak256("challenge_initiate");
+    bytes32 private constant _TUTORIAL_ACHIEVEMENT_ID = keccak256("expedition_explorer");
     bytes32 private constant _EXPEDITION_ACHIEVEMENT_ID = keccak256("expedition_progression");
     
     /// @custom:oz-upgrades-unsafe-allow constructor
