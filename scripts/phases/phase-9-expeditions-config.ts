@@ -26,6 +26,45 @@ export async function configureExpeditions(context: DeploymentContext): Promise<
     // Helper function to convert hours to seconds
     const hoursToSeconds = (hours: number) => hours * 60 * 60;
     
+    const thirtyMinuteExpeditions = [
+        {
+            id: "lunch-delivery-mission",
+            name: "Lunch Delivery Mission",
+            domain: 0, // Air
+            duration: hoursToSeconds(0.5),
+            totemCost: ethers.parseUnits("1", 18),
+            happinessCost: 1,
+            baseExp: 5,
+            affinityWeights: [1, 8, 1], // Agility
+            runeDropChances: [20, 0, 0], // 20% Lesser, 0% Greater and Ancient
+            minStage: 0, // Stage 1
+        },
+        {
+            id: "weed-pulling-quest",
+            name: "Weed Pulling Quest",
+            domain: 1, // Earth
+            duration: hoursToSeconds(0.5),
+            totemCost: ethers.parseUnits("1", 18),
+            happinessCost: 1,
+            baseExp: 5,
+            affinityWeights: [8, 1, 1], // Strength
+            runeDropChances: [20, 0, 0], // 20% Lesser, 0% Greater and Ancient
+            minStage: 0, // Stage 1
+        },
+        {
+            id: "backyard-fishing-journey",
+            name: "Backyard Fishing Journey",
+            domain: 2, // Water
+            duration: hoursToSeconds(0.5),
+            totemCost: ethers.parseUnits("1", 18),
+            happinessCost: 1,
+            baseExp: 5,
+            affinityWeights: [1, 1, 8], // Wisdom
+            runeDropChances: [20, 0, 0], // 20% Lesser, 0% Greater and Ancient
+            minStage: 0, // Stage 1
+        }
+    ]
+    
     // Configuration for 3-hour expeditions (from original deploy-expeditions.ts)
     const threeHourExpeditions = [
         {
@@ -188,6 +227,7 @@ export async function configureExpeditions(context: DeploymentContext): Promise<
     
     // Deploy all expeditions (from original deploy-expeditions.ts)
     const allExpeditions = [
+      ...thirtyMinuteExpeditions,
       ...threeHourExpeditions,
       ...sixHourExpeditions,
       ...twelveHourExpeditions,
@@ -226,6 +266,14 @@ export async function configureExpeditions(context: DeploymentContext): Promise<
 
 export function getExpeditionsConfigSteps(): DeploymentStep[] {
   return [
+    {
+      id: "thirty-minute-expeditions",
+      name: "Configure 30-Minute Expeditions (3)",
+      phase: DeploymentPhase.EXPEDITIONS_CONFIG,
+      dependencies: ["expeditionsProxy"],
+      optional: false,
+      retryable: true
+    },
     { 
       id: "three-hour-expeditions", 
       name: "Configure 3-Hour Expeditions (3)", 
