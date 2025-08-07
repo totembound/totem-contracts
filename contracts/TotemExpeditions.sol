@@ -66,6 +66,11 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
     bytes32 private constant _TUTORIAL_ACHIEVEMENT_ID = keccak256("expedition_explorer");
     bytes32 private constant _EXPEDITION_ACHIEVEMENT_ID = keccak256("expedition_progression");
     
+    // Tutorial expedition IDs (30-minute expeditions)
+    bytes32 private constant _LUNCH_DELIVERY_ID = keccak256("lunch-delivery-mission");
+    bytes32 private constant _WEED_PULLING_ID = keccak256("weed-pulling-quest");
+    bytes32 private constant _FISHING_JOURNEY_ID = keccak256("backyard-fishing-journey");
+    
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -343,6 +348,13 @@ contract TotemExpeditions is ITotemExpeditions, Initializable, OwnableUpgradeabl
         
         // Update achievements
         if (address(achievements) != address(0)) {
+            // Check if this is one of the 30-minute tutorial expeditions
+            if (expedition.expeditionId == _LUNCH_DELIVERY_ID || 
+                expedition.expeditionId == _WEED_PULLING_ID || 
+                expedition.expeditionId == _FISHING_JOURNEY_ID) {
+                achievements.unlockAchievement(_TUTORIAL_ACHIEVEMENT_ID, user);
+            }
+            
             achievements.updateProgress(_EXPEDITION_ACHIEVEMENT_ID, user, 1);
         }
         
